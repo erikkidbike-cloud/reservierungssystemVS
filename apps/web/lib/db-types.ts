@@ -111,6 +111,20 @@ export interface Customer {
   lang: string;
 }
 
+/** Row of agreement_clauses — the editable Nutzungsvereinbarung text. */
+export interface AgreementClause {
+  id: string;
+  location_id: string;
+  clause_key: string;
+  sort_order: number;
+  title_de: string;
+  title_en: string;
+  body_de: string;
+  body_en: string;
+  updated_by: string | null;
+  updated_at: string;
+}
+
 export interface TariffRow {
   id: string;
   location_id: string;

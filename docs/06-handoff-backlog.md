@@ -113,6 +113,16 @@ not this one. Listed for completeness.
   issues in `packages/documents/README.md` — the WA Word file's heading styles are
   broken (worked around, but worth tidying), and **WA charges a 50/70 € deposit
   online that its agreement never mentions**, which needs a decision.
+- ✅ **3.1b Nutzungsvereinbarung editing UI** — **Done.** The clause text isn't a
+  fixed constant: it lives in the `agreement_clauses` table
+  (`supabase/migrations/0008_agreements.sql`), seeded once from the Word import
+  (`supabase/seed/nv_clauses.sql`, `ON CONFLICT DO NOTHING` — never overwrites an
+  edit) and editable at `/admin/agreements` with no deploy. RLS scoping (admin
+  everywhere, location_manager only their location) is proven by an actual
+  role-switch test, not just checked for shape —
+  `supabase/test/02_agreements.test.sql`. A location with no rows (WI today) has
+  no agreement yet; the "Aus importierter Word-Vorlage übernehmen" button or
+  typing clauses in by hand both work the same way for turning one on later.
 - **3.2 Sammel-Nutzungsvereinbarung** — select multiple bookings → one PDF
   (30% Skonto clause, no deposit clause). Replaces the Excel `Sammel-NV`
   paste-tab. Source: `Sammel-Nutzungsvereinbarung VS WE DE.docx`.

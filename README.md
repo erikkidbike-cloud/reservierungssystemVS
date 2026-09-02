@@ -46,6 +46,8 @@ docs/                         Canonical specification (read these first)
   04-state-machine.md         Booking lifecycle and side-effects
   05-open-questions.md        Answered questions + remaining gaps to confirm
   06-handoff-backlog.md       Phased, scoped tasks for follow-up models
+  07-supabase-setup.md        Step-by-step: create the project, apply the
+                              schema, wire up Entra ID login, verify it works
 
 supabase/
   migrations/                 Postgres schema, constraints, RLS, views, functions

@@ -50,6 +50,12 @@ Kept `STABLE` and schema-qualified to avoid recursive RLS evaluation.
   inserts go through `create_booking_request()` (SECURITY DEFINER, service-role
   only), which validates and inserts with `status='requested'` — there is no
   INSERT policy for `anon` on the table at all.
+- **agreement_clauses**: read by any authenticated user (contract text is not
+  personal or financial data, and a preview is harmless); write by admin
+  everywhere, location_manager only where `has_location(location_id)` — the
+  same scoping as bookings. Unlike most of the schema, this table's RLS is
+  exercised by an actual role-switch test rather than only checked for shape —
+  see `supabase/test/02_agreements.test.sql`.
 - **customer_experiences**: admin, location_manager, finance only.
 - **payments / documents**: admin + finance (payments), admin + location_manager
   (documents, scoped to location).
@@ -105,3 +111,26 @@ Two mechanisms, used together:
 
 Where a role needs the base table but not every column (rare), Postgres
 column-level `GRANT` can supplement — but prefer views for clarity.
+
+## A gap in the local test harness, for honesty's sake
+
+On a real Supabase project, creating a table auto-grants base privileges
+(`SELECT`/`INSERT`/`UPDATE`/`DELETE`) to `anon`/`authenticated`/`service_role`
+project-wide; RLS is then the *only* thing restricting rows. `supabase/test/`'s
+throwaway Postgres cluster does not replicate that project-wide default — tables
+here start with no privileges for those roles until a migration grants them.
+
+In practice this hasn't been a problem: `01_functions.test.sql` runs entirely as
+the `postgres` superuser (which bypasses RLS by table ownership, same as
+`service_role` in production) and exercises security through the
+`SECURITY DEFINER` functions and the column-restricted views instead, which
+*are* real grants (0006) — so those guarantees are genuinely tested. But it does
+mean an RLS *policy* on a base table, by itself, was never proven to actually
+hold against a non-superuser role until `agreement_clauses` — which the
+`0008` migration grants explicitly and `02_agreements.test.sql` exercises with a
+real `SET ROLE authenticated` + `auth.uid()` switch (anon refused outright,
+staff's write silently matches zero rows, a location_manager scoped to one
+location can't touch another's). Extending that same explicit-grant-plus-
+role-switch treatment to the older tables (`bookings`, `customers`, …) is a
+worthwhile follow-up, not done here to keep this change scoped to what
+Nutzungsvereinbarung-editing needed.

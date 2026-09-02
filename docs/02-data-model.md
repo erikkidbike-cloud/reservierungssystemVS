@@ -135,6 +135,23 @@ Manual non-bookable periods (projects, maintenance, Radfahrausbildung).
 Blocks are intentionally **not** part of the booking exclusion constraint (admin
 may legitimately overlap them).
 
+### `agreement_clauses`
+The **editable** Nutzungsvereinbarung text, per location. This is the pricing
+pattern applied to contracts: the wording (like the tariff *numbers*) lives in
+the database and is editable by an admin/location_manager with no deploy; the
+rendering logic (like the pricing *algorithm*) stays in code
+(`packages/documents`). `id`, `location_id`, `clause_key` (stable id,
+e.g. `nutzungszeit`), `sort_order`, `title_de`, `title_en`, `body_de`,
+`body_en`, `updated_by`, timestamps. Unique `(location_id, clause_key)`.
+
+`packages/documents/src/nv-clauses.generated.ts` — mechanically extracted from
+the owner's Word templates — is only the **initial import source**, seeded once
+via `supabase/seed/nv_clauses.sql` (every insert `ON CONFLICT DO NOTHING`, so
+re-seeding never overwrites an edit made in `/admin/agreements`). A location
+with zero rows simply has no agreement yet: Wiener Straße is phone-only today
+and has none, and turning its Nutzungsvereinbarung on later is "an admin types
+it into `/admin/agreements`" — no schema or code change.
+
 ### `documents`
 `id`, `booking_id null`, `type document_type`, `status document_status`,
 `storage_path text`, `jotform_submission_id text null` (migration bridge),

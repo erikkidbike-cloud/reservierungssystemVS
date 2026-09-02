@@ -18,7 +18,8 @@
     "paths": {
       "@/*": ["./*"],
       "@vs/pricing": ["../../packages/pricing/src/index.ts"],
-      "@vs/domain": ["../../packages/domain/src/booking-state.ts"]
+      "@vs/domain": ["../../packages/domain/src/booking-state.ts"],
+      "@vs/documents": ["../../packages/documents/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

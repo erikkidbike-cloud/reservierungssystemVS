@@ -3,7 +3,7 @@
 // links, it is not the security boundary. RLS and the role views are.
 
 import Link from 'next/link';
-import { getSessionUser, canManageTariffs, canSeeContactData } from '@/lib/auth';
+import { getSessionUser, canManageTariffs, canManageAgreements, canSeeContactData } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +44,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href="/admin">Übersicht</Link>
         <Link href="/admin/bookings">Buchungen</Link>
         {canManageTariffs(role) && <Link href="/admin/tariffs">Preise</Link>}
+        {canManageAgreements(role) && <Link href="/admin/agreements">Verträge</Link>}
         {canManageTariffs(role) && <Link href="/admin/users">Benutzer</Link>}
         <span className="spacer" />
         <span className="muted">

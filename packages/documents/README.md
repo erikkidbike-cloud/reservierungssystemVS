@@ -1,24 +1,46 @@
 # @vs/documents
 
-Booking terms, the Nutzungsvereinbarung (agreement) as print-ready HTML/PDF, and
-the cover email. Backlog task 3.1.
+Booking terms and the Nutzungsvereinbarung (agreement) as print-ready HTML/PDF,
+plus the cover email. Backlog tasks 3.1 and 3.1b.
 
-## Status: complete for WE and WA
+## Where the clause text actually lives
 
-The clause wording is **real** — extracted from the owner's Word templates, not
-paraphrased. 16 clauses for Weinstraße, 11 for Wassertorplatz, each in German and
-English, plus both cover emails.
+This package **renders** the agreement; it is not where the clause wording is
+edited day-to-day. That's `agreement_clauses` in the database, editable at
+`/admin/agreements` with no deploy — the same pattern as `tariffs`: the pricing
+*algorithm* is code, the pricing *numbers* are DB rows; here the rendering
+*logic* is code, the clause *wording* is DB rows. See
+`docs/02-data-model.md` and `supabase/migrations/0008_agreements.sql`.
+
+What lives in this package:
+
+- **`src/nv-clauses.generated.ts`** — the **initial import** of the real clause
+  text, mechanically extracted from the owner's Word templates (never
+  retyped/paraphrased — see "Importing the clause text" below). This seeds the
+  database once (`supabase/seed/nv_clauses.sql`); after that, the database is
+  authoritative and this file is just where new locations' Word imports land
+  before their first seed.
+- **`getClausesForLocation()` / `hasClausesForLocation()`** — read that
+  generated set. The app doesn't call these directly for rendering a real
+  document (it reads `agreement_clauses` and passes the result via
+  `RenderOptions.clauses`); they're used by the "import from template" admin
+  action and by this package's own tests, which pin the imported text.
 
 | | Weinstraße (WE) | Wassertorplatz (WA) | Wiener Straße (WI) |
 |---|---|---|---|
-| Clauses | 16 | 11 | — (phone-only, no template) |
+| Clauses | 16 | 11 | 0 — **ready to add, not written yet** |
 | Deposit clause | yes | **no** | — |
 | Children's project | Mon–**Sat** | Mon–**Fri** | — |
 
-The sets are **not** interchangeable, so `getClausesForLocation()` throws for an
-unknown location rather than rendering the wrong contract.
+WI being phone-only today doesn't require any schema or code change to give it
+a contract later: an admin either types the clauses into `/admin/agreements`
+directly, or hands over a WI Word file to run through the same importer used
+for WE/WA. The clause sets are **not** interchangeable between locations, so
+`getClausesForLocation()` throws for an unknown location rather than rendering
+the wrong contract — and the same is true at the database level: a booking for
+a location with zero `agreement_clauses` rows has no agreement to send yet.
 
-## Importing the clause text
+## Importing the clause text (from Word into the generated file)
 
 The agreement is a binding contract, so its wording is never retyped. To update
 it, edit the Word file and re-run the importer — the diff is reviewable:
@@ -35,6 +57,15 @@ python3 scripts/import-nv-docx.py \
 The importer keys off the "Überschrift 2" heading style, but also accepts
 `N. Title` numbering and works line-by-line, because the Wassertorplatz template
 has structural defects (see below). It reports anomalies on stderr.
+
+**This only updates the generated file, not the live database.** Re-seeding
+(`supabase/seed/nv_clauses.sql`, produced by
+`scripts/export-clauses-sql.mts`) is `ON CONFLICT DO NOTHING`, so it never
+overwrites a clause an admin has since edited in `/admin/agreements` — by
+design, once a location is seeded, the database is the source of truth and a
+Word re-import doesn't silently propagate. To pull a genuinely updated Word
+template into a *live* project, edit the affected clauses by hand in the admin
+UI, or deliberately clear that location's rows first.
 
 ## Language
 

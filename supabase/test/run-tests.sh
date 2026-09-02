@@ -51,14 +51,20 @@ for f in "$ROOT"/supabase/migrations/0*.sql; do
 done
 
 echo "==> seed"
+# Order matters: nv_clauses.sql looks up locations by code, so seed.sql (which
+# creates them) must run first.
 psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$ROOT/supabase/seed/seed.sql"
+psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$ROOT/supabase/seed/nv_clauses.sql"
 
 echo "==> tests"
 # psql prefixes notices with "psql:file:line: " — strip that for readable output.
 # ON_ERROR_STOP + set -e mean any failed assertion aborts this script non-zero.
-psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$ROOT/supabase/test/01_functions.test.sql" 2>&1 \
-  | sed -E 's/^psql:[^ ]+ //' \
-  | grep -E '(NOTICE|ERROR|^---)' \
-  | sed -E 's/^NOTICE: +//'
+for f in "$ROOT"/supabase/test/*.test.sql; do
+  echo "    $(basename "$f")"
+  psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$f" 2>&1 \
+    | sed -E 's/^psql:[^ ]+ //' \
+    | grep -E '(NOTICE|ERROR|^---)' \
+    | sed -E 's/^NOTICE: +//'
+done
 
 echo "==> OK — all assertions passed"

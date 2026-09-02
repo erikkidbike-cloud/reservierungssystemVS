@@ -52,6 +52,17 @@ export function canManageTariffs(role: AppRole | undefined): boolean {
 }
 
 /**
+ * Editing the Nutzungsvereinbarung text is scoped like bookings (admin
+ * everywhere, location_manager for their own location) rather than restricted
+ * to admin like tariffs — contract wording is operational, not financial, and
+ * the RLS policy on agreement_clauses matches this exactly. See
+ * docs/03-roles-and-rls.md.
+ */
+export function canManageAgreements(role: AppRole | undefined): boolean {
+  return role === 'admin' || role === 'location_manager';
+}
+
+/**
  * Which relation to read bookings from for this role.
  *
  * Staff and caretakers have no SELECT policy on `bookings` at all — they read
