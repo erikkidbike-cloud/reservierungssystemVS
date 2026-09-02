@@ -1,0 +1,103 @@
+name: Update JSON via dispatch
+
+on:
+  repository_dispatch:
+    types: [update-json]
+  workflow_dispatch: {}   # handmatige test
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show event context (debug)
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "client_payload:"
+          echo '${{ toJson(github.event.client_payload) }}'
+
+      - name: Validate payload presence
+        id: validate
+        run: |
+          set -euo pipefail
+          PAYLOAD='${{ toJson(github.event.client_payload) }}'
+          # Lege payload? -> skip rest
+          if [ -z "$PAYLOAD" ] || [ "$PAYLOAD" = "null" ]; then
+            echo "has_payload=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "$PAYLOAD" > payload.json
+          echo "has_payload=true" >> $GITHUB_OUTPUT
+
+      - name: Write files from client_payload (if any)
+        if: steps.validate.outputs.has_payload == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # zorg dat jq aanwezig is
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+
+          # check structuur, maar fail niet hard: geef nette fout + stop zonder error
+          if ! jq -e 'has("files") and (.files|type=="array")' payload.json >/dev/null 2>&1; then
+            echo "WARN: payload heeft geen .files-array; er wordt niets geschreven."
+            echo "CHANGES=0" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          CHANGES=0
+          for row in $(jq -c '.files[]' payload.json); do
+            PATH_=$(echo "$row" | jq -r '.path')
+            B64=$(echo "$row" | jq -r '.content_b64')
+
+            if [ -z "$PATH_" ] || [ -z "$B64" ] || [ "$PATH_" = "null" ] || [ "$B64" = "null" ]; then
+              continue
+            fi
+
+            mkdir -p "$(dirname "$PATH_")"
+            TMP=$(mktemp)
+            echo "$B64" | base64 --decode > "$TMP" || exit 1
+            
+            dos2unix -q "$TMP" 2>/dev/null || true
+
+            if ! jq -e type "$TMP" >/dev/null 2>&1; then
+              exit 1
+            fi
+
+            if [ -f "$PATH_" ] && cmp -s "$TMP" "$PATH_"; then
+              rm -f "$TMP"
+            else
+              mv "$TMP" "$PATH_"
+              CHANGES=1
+            fi
+          done
+
+          echo "CHANGES=$CHANGES" >> $GITHUB_ENV
+
+      - name: Commit and push (if changed)
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          if [ "${CHANGES:-0}" = "1" ]; then
+            git commit -m "${{ github.event.client_payload.message || 'update json via Flow' }}"
+            git push
+            echo "Changes pushed successfully."
+          else
+            echo "No changes detected. Skipping commit and push."
+          fi
+
+      - name: Deploy to Netlify
+        if: env.CHANGES == '1'
+        run: npx netlify-cli deploy --prod --dir=.
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Freie Zeiten · Verkehrsschule Weinstraße</title>
+<style>
+  :root{
+    --bg:#f7f9fb; --card:#fff; --border:#d8dee6; --ink:#111827; --muted:#667085;
+    --brand:#0ea5e9; --busy:#036ba7; --hold:#7dd3fc; --free:#16a34a; --free-soft:#dcfce7;
+    --track:#eef2f6; --past:#cbd5e1;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+    font-variant-numeric:tabular-nums;
+  }
+  .wrap{max-width:900px;margin:0 auto;padding:16px 16px 48px}
+
+  header{margin:8px 0 14px}
+  h1{font-size:20px;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14px;margin:0;line-height:1.45}
+
+  .bar{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:10px 12px;margin:14px 0;
+  }
+  .bar .count{font-size:14px}
+  .bar .count b{font-size:16px}
+  .bar .right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .stamp{font-size:12px;color:var(--muted)}
+  .switch{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;user-select:none}
+  .switch input{width:16px;height:16px;margin:0;accent-color:var(--brand)}
+  button.reload{
+    border:1px solid var(--border);background:#fff;border-radius:9px;padding:7px 12px;
+    font-size:13px;font-weight:600;cursor:pointer;min-height:38px
+  }
+  button.reload:hover{background:#f1f5f9}
+  button.reload:disabled{opacity:.55;cursor:default}
+
+  .weekhead{
+    display:flex;align-items:baseline;gap:8px;
+    margin:22px 2px 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#475569
+  }
+  .weekhead span{font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted)}
+
+  .day{
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:12px 14px;margin-bottom:8px
+  }
+  .day.blocked{background:#fbfcfd}
+  .day.today{border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,165,233,.12)}
+  .day-top{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:9px}
+  .date{font-size:15px;font-weight:700}
+  .date .dow{color:var(--muted);font-weight:600;margin-right:6px}
+  .tag{
+    font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+    padding:3px 8px;border-radius:999px;background:#e0f2fe;color:#075985
+  }
+  .verdict{font-size:13px;font-weight:600;color:var(--free)}
+  .verdict.none{color:var(--muted);font-weight:500}
+
+  /* Das Fenster 14–18 Uhr als Zeitbalken */
+  .track{position:relative;height:22px;border-radius:7px;background:var(--track);overflow:hidden}
+  .seg{position:absolute;top:0;bottom:0}
+  .seg.free{background:var(--free)}
+  .seg.busy{background:var(--busy)}
+  .seg.hold{background:var(--hold)}
+  .seg.past{background:repeating-linear-gradient(45deg,var(--past) 0 5px,#dbe3ec 5px 10px)}
+  .tick{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.65)}
+  .scale{display:flex;justify-content:space-between;margin-top:3px;font-size:11px;color:var(--muted)}
+
+  .slots{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .slot{
+    display:inline-flex;align-items:baseline;gap:6px;
+    background:var(--free-soft);border:1px solid #a7f3d0;color:#14532d;
+    border-radius:999px;padding:5px 11px;font-size:13px;font-weight:700
+  }
+  .slot .dur{font-weight:500;opacity:.75;font-size:12px}
+  .booked{margin-top:9px;font-size:12px;color:var(--muted);line-height:1.5}
+  .booked span{white-space:nowrap}
+
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:18px 2px 0;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+  .note{
+    background:#fef9c3;border:1px solid #fde68a;color:#854d0e;
+    border-radius:10px;padding:9px 12px;font-size:13px;margin:12px 0;line-height:1.5
+  }
+  .error{
+    background:#fef2f2;border:1px solid #fecaca;color:#991b1b;
+    border-radius:10px;padding:12px 14px;font-size:14px;margin:12px 0;line-height:1.5
+  }
+  .empty{color:var(--muted);font-size:14px;padding:22px 2px}
+  .skeleton{height:74px;border-radius:12px;background:linear-gradient(90deg,#eef2f6,#f7fafc,#eef2f6);
+    background-size:200% 100%;animation:sh 1.2s linear infinite;margin-bottom:8px}
+  @keyframes sh{to{background-position:-200% 0}}
+  @media (prefers-reduced-motion: reduce){.skeleton{animation:none}}
+
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+  @media (max-width:520px){
+    .day-top{align-items:flex-start;flex-direction:column;gap:4px}
+    .bar{align-items:flex-start}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Freie Zeiten in der Verkehrsschule</h1>
+    <p class="sub">Weinstraße · Montag bis Samstag, 14:00–18:00 Uhr.<br>
+    Grün heißt: in diesem Zeitraum liegt keine Buchung.</p>
+  </header>
+
+  <div class="bar">
+    <div class="count" id="count">Belegung wird geladen …</div>
+    <div class="right">
+      <label class="switch"><input type="checkbox" id="onlyFree"> Nur Tage mit freien Zeiten</label>
+      <span class="stamp" id="stamp"></span>
+      <button class="reload" id="reload">Aktualisieren</button>
+    </div>
+  </div>
+
+  <div id="messages"></div>
+  <div id="list">
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--free)"></i>frei (mind. 30 Min.)</span>
+    <span><i style="background:var(--busy)"></i>gebucht</span>
+    <span><i style="background:var(--hold)"></i>vorläufig reserviert</span>
+    <span><i style="background:var(--track)"></i>Lücke unter 30 Min.</span>
+    <span><i style="background:var(--past)"></i>schon vorbei</span>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   Freie Zeiten Verkehrsschule Weinstraße  ·  frei.html
+   Liest dieselben Daten wie das Buchungstool:
+   - events-we.json          (bestätigte Belegungen)
+   - Netlify-Function holds  (vorläufige Reservierungen)
+   Muss auf derselben Domain liegen wie das Buchungstool,
+   sonst gehen die relativen Pfade ins Leere.
+   ============================================================ */
+
+const CFG = {
+  eventsUrl : 'events-we.json',
+  holdsUrl  : '/.netlify/functions/submit?type=holds&school=WE',
+  startHour : 14,
+  endHour   : 18,
+  minSlotMin: 30,     // kürzere Lücken werden nicht angezeigt
+  horizonDays: 28,    // Vorschau: 4 Wochen
+  skipWeekday: [0],   // Sonntag raus
+  waiveEndAt: '15:00' // Buchungen, die exakt hier enden, blockieren die Zeit davor nicht
+};
+
+const MIN = 60000;
+const WINDOW_MIN = (CFG.endHour - CFG.startHour) * 60;
+const WAIVE_H = Number(CFG.waiveEndAt.split(':')[0]);
+const WAIVE_M = Number(CFG.waiveEndAt.split(':')[1]);
+
+const listEl  = document.getElementById('list');
+const countEl = document.getElementById('count');
+const stampEl = document.getElementById('stamp');
+const msgEl   = document.getElementById('messages');
+const reloadBtn = document.getElementById('reload');
+const onlyFreeEl = document.getElementById('onlyFree');
+
+let ALL_DAYS = [];
+
+/* ---------- Daten holen ---------- */
+
+function absolute(url){
+  try { return new URL(url, location.href).href; } catch(_) { return url; }
+}
+
+async function fetchJson(url){
+  const full = absolute(url);
+  let r;
+  try{
+    r = await fetch(url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now(), { cache:'no-store' });
+  }catch(err){
+    throw new Error('nicht erreichbar: ' + full);
+  }
+  if(!r.ok) throw new Error('HTTP ' + r.status + ' bei ' + full);
+  const txt = await r.text();
+  try{
+    return JSON.parse(txt.replace(/^\uFEFF/, ''));
+  }catch(_){
+    throw new Error('keine gültige JSON-Antwort von ' + full);
+  }
+}
+
+/* Gleiche Normalisierung wie im Buchungstool: kaputte/fehlende Endzeiten abfangen. */
+function normalizeEvents(raw){
+  if(!Array.isArray(raw)) return [];
+  const DAY = 24 * 60 * MIN;
+  return raw.map(ev => {
+    if (String(ev.isFrei || '').toLowerCase() === 'true') return null;
+    const s = new Date(ev.start);
+    if (isNaN(s.getTime())) return null;
+    let e = ev.end ? new Date(ev.end) : null;
+    if (!e || isNaN(e.getTime())) e = new Date(s.getTime() + 120 * MIN);
+    if (e <= s){
+      e = new Date(e.getTime() + DAY);
+      if (e <= s) e = new Date(s.getTime() + 120 * MIN);
+    }
+    if (e - s > DAY) e = new Date(s.getTime() + DAY);
+    const frauen = String(ev.frauenprojekt || '').toLowerCase() === 'true';
+    return {
+      start: s,
+      end: e,
+      kind: 'busy',
+      title: frauen ? 'Frauen*- und Kinderprojekt' : (ev.title || 'Belegt')
+    };
+  }).filter(Boolean);
+}
+
+function normalizeHolds(raw){
+  if(!Array.isArray(raw)) return [];
+  return raw.map(h => {
+    const s = new Date(h.start), e = new Date(h.end);
+    if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return null;
+    return { start:s, end:e, kind:'hold', title:'Vorläufig reserviert' };
+  }).filter(Boolean);
+}
+
+/* ---------- Rechnen ---------- */
+
+const startOfDay = d => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+const sameDay = (a,b) => a.toDateString() === b.toDateString();
+
+function ceilToQuarter(d){
+  const x = new Date(d);
+  x.setSeconds(0,0);
+  const m = x.getMinutes();
+  x.setMinutes(m + ((15 - (m % 15)) % 15));
+  return x;
+}
+
+/* Endet eine Buchung exakt um 15:00, gilt die Zeit davor als frei. */
+function endsExactlyAtWaiveTime(d){
+  return d.getHours() === WAIVE_H && d.getMinutes() === WAIVE_M && d.getSeconds() === 0 && d.getMilliseconds() === 0;
+}
+
+function buildDay(date, events, now){
+  const winStart = new Date(date); winStart.setHours(CFG.startHour,0,0,0);
+  const winEnd   = new Date(date); winEnd.setHours(CFG.endHour,0,0,0);
+
+  const isToday = sameDay(date, now);
+  let effStart = winStart;
+  if (isToday && now > winStart) effStart = ceilToQuarter(now);
+  const over = isToday && effStart >= winEnd;
+
+  // Belegungen auf das Fenster zuschneiden
+  const clipped = events
+    .filter(ev => ev.start < winEnd && ev.end > winStart)
+    .map(ev => ({
+      kind: ev.kind,
+      title: ev.title,
+      s: new Date(Math.max(ev.start, winStart)),
+      e: new Date(Math.min(ev.end, winEnd))
+    }))
+    .sort((a,b) => a.s - b.s);
+
+  // Buchungen mit Ende exakt um 15:00 blockieren die Zeit davor nicht
+  const blocks = clipped.filter(b => !endsExactlyAtWaiveTime(b.e));
+
+  // Für die Lückenrechnung überlappende Blöcke zusammenfassen
+  const merged = [];
+  blocks.forEach(b => {
+    const last = merged[merged.length-1];
+    if (last && b.s <= last.e){ if (b.e > last.e) last.e = new Date(b.e); }
+    else merged.push({ s:new Date(b.s), e:new Date(b.e) });
+  });
+
+  const gaps = [];
+  if (!over){
+    let cur = effStart;
+    merged.forEach(m => {
+      if (m.s > cur) gaps.push({ s:new Date(cur), e:new Date(Math.min(m.s, winEnd)) });
+      if (m.e > cur) cur = new Date(m.e);
+    });
+    if (cur < winEnd) gaps.push({ s:new Date(cur), e:new Date(winEnd) });
+  }
+  const slots = gaps.filter(g => (g.e - g.s) >= CFG.minSlotMin * MIN);
+
+  return { date, winStart, winEnd, effStart, isToday, over, blocks, slots };
+}
+
+/* ---------- Anzeige ---------- */
+
+const fmtTime = d => d.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' });
+const fmtDow  = d => d.toLocaleDateString('de-DE', { weekday:'long' });
+const fmtDate = d => d.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' });
+
+function fmtDur(ms){
+  const m = Math.round(ms / MIN), h = Math.floor(m / 60), r = m % 60;
+  if (!h) return r + ' Min.';
+  return r ? h + ' Std. ' + r + ' Min.' : h + ' Std.';
+}
+function pct(from, winStart){
+  return Math.max(0, Math.min(100, ((from - winStart) / (WINDOW_MIN * MIN)) * 100));
+}
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function mondayOf(d){
+  const x = startOfDay(d);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
+function renderDay(day){
+  const free = day.slots.length > 0;
+  const el = document.createElement('article');
+  el.className = 'day' + (free ? '' : ' blocked') + (day.isToday ? ' today' : '');
+
+  let tag = '';
+  const now = new Date();
+  const tomorrow = startOfDay(now); tomorrow.setDate(tomorrow.getDate() + 1);
+  if (day.isToday) tag = '<span class="tag">Heute</span>';
+  else if (sameDay(day.date, tomorrow)) tag = '<span class="tag">Morgen</span>';
+
+  let verdict, verdictClass = '';
+  if (day.over){ verdict = 'Für heute vorbei'; verdictClass = 'none'; }
+  else if (!free){ verdict = 'Keine freie Zeit'; verdictClass = 'none'; }
+  else {
+    const total = day.slots.reduce((a,s) => a + (s.e - s.s), 0);
+    verdict = (total >= WINDOW_MIN * MIN) ? 'Ganze Zeit frei' : fmtDur(total) + ' frei';
+  }
+
+  // Zeitbalken 14–18 Uhr
+  let segs = '';
+  if (day.effStart > day.winStart){
+    segs += '<div class="seg past" style="left:0;width:' + pct(day.effStart, day.winStart) + '%"></div>';
+  }
+  day.slots.forEach(s => {
+    const l = pct(s.s, day.winStart), w = pct(s.e, day.winStart) - l;
+    segs += '<div class="seg free" style="left:' + l + '%;width:' + w + '%"></div>';
+  });
+  day.blocks.forEach(b => {
+    const l = pct(b.s, day.winStart), w = pct(b.e, day.winStart) - l;
+    segs += '<div class="seg ' + (b.kind === 'hold' ? 'hold' : 'busy') + '" style="left:' + l + '%;width:' + w + '%"></div>';
+  });
+  for (let h = 1; h < CFG.endHour - CFG.startHour; h++){
+    segs += '<div class="tick" style="left:' + (h / (CFG.endHour - CFG.startHour) * 100) + '%"></div>';
+  }
+
+  const slotsHtml = day.slots.length
+    ? '<div class="slots">' + day.slots.map(s =>
+        '<span class="slot">' + fmtTime(s.s) + '–' + fmtTime(s.e) +
+        ' <span class="dur">' + fmtDur(s.e - s.s) + '</span></span>').join('') + '</div>'
+    : '';
+
+  const bookedHtml = day.blocks.length
+    ? '<div class="booked">Belegt: ' + day.blocks.map(b =>
+        '<span>' + fmtTime(b.s) + '–' + fmtTime(b.e) + ' ' + esc(b.title) + '</span>').join(' · ') + '</div>'
+    : '';
+
+  el.innerHTML =
+    '<div class="day-top">' +
+      '<div class="date"><span class="dow">' + fmtDow(day.date) + '</span>' + fmtDate(day.date) + ' ' + tag + '</div>' +
+      '<div class="verdict ' + verdictClass + '">' + verdict + '</div>' +
+    '</div>' +
+    '<div class="track">' + segs + '</div>' +
+    '<div class="scale"><span>14:00</span><span>15:00</span><span>16:00</span><span>17:00</span><span>18:00</span></div>' +
+    slotsHtml + bookedHtml;
+
+  return el;
+}
+
+function render(){
+  const onlyFree = onlyFreeEl.checked;
+  const days = ALL_DAYS.filter(d => !onlyFree || d.slots.length > 0);
+
+  listEl.innerHTML = '';
+  if (!days.length){
+    listEl.innerHTML = '<p class="empty">In den nächsten vier Wochen ist zwischen 14 und 18 Uhr keine Lücke von mindestens 30 Minuten frei.</p>';
+    return;
+  }
+
+  let lastWeek = '';
+  days.forEach(day => {
+    const monday = mondayOf(day.date);
+    const key = monday.toDateString();
+    if (key !== lastWeek){
+      lastWeek = key;
+      const sunday = new Date(monday); sunday.setDate(sunday.getDate() + 6);
+      const thisMonday = mondayOf(new Date());
+      const diffWeeks = Math.round((monday - thisMonday) / (7 * 24 * 60 * MIN));
+      const name = diffWeeks === 0 ? 'Diese Woche' : diffWeeks === 1 ? 'Nächste Woche' : 'Woche ab ' + fmtDate(monday);
+      const h = document.createElement('h2');
+      h.className = 'weekhead';
+      h.innerHTML = name + ' <span>' + fmtDate(monday) + '–' + fmtDate(sunday) + '</span>';
+      listEl.appendChild(h);
+    }
+    listEl.appendChild(renderDay(day));
+  });
+
+  const freeDays = ALL_DAYS.filter(d => d.slots.length > 0);
+  const freeSlots = freeDays.reduce((a,d) => a + d.slots.length, 0);
+  countEl.innerHTML = '<b>' + freeSlots + '</b> freie Zeiträume an <b>' + freeDays.length + '</b> Tagen';
+}
+
+function message(kind, text){
+  const d = document.createElement('div');
+  d.className = kind;
+  d.textContent = text;
+  msgEl.appendChild(d);
+}
+
+/* ---------- Laden ---------- */
+
+async function load(){
+  reloadBtn.disabled = true;
+  msgEl.innerHTML = '';
+  let stampSuffix = '';
+
+  let events = [];
+  try{
+    events = normalizeEvents(await fetchJson(CFG.eventsUrl));
+  }catch(err){
+    listEl.innerHTML = '';
+    countEl.textContent = 'Keine Daten';
+    message('error', 'Der Belegungsplan lässt sich gerade nicht laden — ' + err.message + '. Bitte auf „Aktualisieren“ tippen oder es später noch einmal versuchen.');
+    reloadBtn.disabled = false;
+    return;
+  }
+
+  try{
+    const holds = normalizeHolds(await fetchJson(CFG.holdsUrl));
+    events = events.concat(holds);
+    if (!holds.length) stampSuffix = ' · keine vorläufigen Reservierungen';
+  }catch(err){
+    message('note', 'Vorläufige Reservierungen konnten nicht geladen werden — ' + err.message + '. Eine grün angezeigte Zeit kann also bereits angefragt sein.');
+  }
+
+  const now = new Date();
+  const first = startOfDay(now);
+  ALL_DAYS = [];
+  for (let i = 0; i < CFG.horizonDays; i++){
+    const d = new Date(first); d.setDate(d.getDate() + i);
+    if (CFG.skipWeekday.includes(d.getDay())) continue;
+    const day = buildDay(d, events, now);
+    if (day.over && day.isToday) continue;   // heutiges Fenster ist durch
+    ALL_DAYS.push(day);
+  }
+
+  render();
+  stampEl.textContent = 'Stand ' + fmtTime(now) + ' Uhr' + stampSuffix;
+  reloadBtn.disabled = false;
+}
+
+reloadBtn.addEventListener('click', load);
+onlyFreeEl.addEventListener('change', render);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+setInterval(load, 5 * 60 * 1000);
+load();
+</script>
+</body>
+</html>

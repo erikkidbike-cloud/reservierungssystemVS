@@ -1,0 +1,2806 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Belegung Verkehrsschulen</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* Toast volledig uitschakelen */
+    #successMsg { display: none !important; }
+    
+    /* toon vaste + knop op touch devices */
+    .touch .mobile-add { display: block; }
+    
+    /* --- Fix horizontale scroll in embed --- */
+    html, body { overflow-x: hidden; width:100%; max-width:100%; }
+    header, .intro, #calendar { max-width: 100%; }
+
+    /* FullCalendar binnen viewport houden */
+    .fc, .fc-scrollgrid { max-width: 100% !important; }
+    .fc .fc-scroller { overflow-x: hidden !important; }
+    .fc .fc-scrollgrid table,
+    .fc .fc-timegrid-body table { width: 100% !important; table-layout: fixed; }
+    .fc .fc-toolbar { flex-wrap: wrap; }
+
+    @media (max-width: 480px) {
+      .controls { align-items: stretch; }
+      .controls select { min-width: 0; width: 100%; }
+    }
+
+    /* compacter: inputs/padding */
+    .field input,.field textarea,.field select{padding:7px 10px;min-height:40px}
+    .btn{min-height:40px}
+
+    /* waarschuwingen direct onder titel */
+    .alert{margin:6px 0 10px;padding:8px 10px;border-radius:8px;font-size:13px}
+    .alert.warn{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+    .alert.note{background:#fef9c3;border:1px solid #fde68a;color:#92400e}
+
+    /* extras chips met prijsbadge en ≥44px touch */
+    .badge{min-height:44px;padding:8px 12px;display:inline-flex;align-items:center;gap:6px}
+    .badge .price{opacity:.8;font-weight:600;font-size:11px}
+
+    /* prijs "pill" + toggle details */
+    .price{display:flex;align-items:center;gap:8px}
+    .price .pill{padding:6px 10px;border-radius:999px;background:#0ea5e91a;border:1px solid #bae6fd}
+    .price .toggle{cursor:pointer;font-size:12px;text-decoration:underline}
+
+    /* sticky submit-balk */
+    .sticky-bar{position:sticky;bottom:0;z-index:5;background:#fff;border-top:1px solid var(--border);
+      display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:0 0 12px 12px}
+    .sticky-bar .sum{font-size:13px}
+    .sticky-bar .sum b{font-weight:800}
+
+    /* modal: fullscreen sheet op mobiel + body lock */
+    @media (max-width:720px){
+      .modal{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0;padding:14px}
+      .modal h3{font-size:16px}
+    }
+
+    /* "X"-sluitknop in header */
+    .modal .close-x{position:absolute;top:10px;right:12px;border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer}
+
+    /* submit loading: spinner links en label zichtbaar */
+    .btn.loading{color:#fff}
+    .btn.loading::before{
+      content:"";display:inline-block;width:16px;height:16px;margin-right:8px;
+      border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite
+    }
+
+    /* focus trap hint (niet zichtbaar) */
+    .visually-hidden{position:absolute!important;height:1px;width:1px;overflow:hidden;clip:rect(1px,1px,1px,1px)}
+
+    #extrasRunning{display:none!important;}
+    #priceToggle{display:none!important;}
+
+    /* Extras layout */
+    .extras .badge{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:4px 10px; min-height:32px; border-radius:999px;
+      border:1px solid var(--border); background:#f8fafc; font-size:12px;
+      white-space: nowrap;
+    }
+    .extras .badge input[type="checkbox"]{
+      margin-right:6px;
+      flex-shrink: 0; 
+      width: 14px; height: 14px;
+    }
+    .extras .badge .price{font-weight:600;opacity:.7;font-size:11px}
+
+    .row.cols-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:720px){ .row.cols-2{grid-template-columns:1fr} }
+
+    .grid{gap:10px}                 
+    .row{gap:6px}                   
+    .field{margin-bottom:8px}       
+    .field label{margin-bottom:3px} 
+
+    #stickyBar .checkline, #btnSubmit { display:none; }
+    #labelBikes,[for="fBikes"]{display:none!important;}
+
+    .row.cols-3{display:grid;grid-template-columns:120px 1fr 1fr;gap:10px}
+    .row.cols-contact{
+      display:grid;
+      grid-template-columns: 2fr 120px 1.4fr;
+      gap:10px;
+    }
+    @media (max-width:720px){
+      .row.cols-contact{grid-template-columns:1fr}
+    }
+
+    :root{
+      --bg:#f7f9fb; --card:#ffffff; --border:#d8dee6; --ink:#111827;
+      --muted:#667085; --brand:#0ea5e9; --busy:#036ba7; --green:#16a34a; --warn:#b91c1c;
+      --popover:#0b3552; --popover-bg:#fff; --popover-border:#cfe7f6;
+      --warning:#f59e0b; --warning-bg:#fef3c7; --warning-border:#fcd34d;
+      --disabled:#9ca3af; --disabled-bg:#f3f4f6;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+
+    header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border)}
+    header .left{display:flex;align-items:center;gap:12px}
+    header img{height:40px;width:auto}
+    header h1{font-size:18px;margin:0}
+
+    .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .controls label{color:var(--muted);font-size:14px}
+    .controls select{
+      appearance:none;font-size:16px;color:var(--ink);
+      background:#fff;border:1px solid var(--border);border-radius:10px;
+      padding:10px 12px;min-width:220px;
+      box-shadow:0 1px 0 rgba(0,0,0,.02);
+    }
+    .controls option.disabled{color:var(--disabled)}
+
+    .intro{max-width:1200px;margin:12px auto 0;background:var(--card);border:1px solid var(--border);
+      border-radius:10px;padding:10px 14px;color:#1f2937}
+    .intro p{margin:4px 0}
+
+    #calendar{max-width:1200px;margin:10px auto;background:var(--card);border:1px solid var(--border);
+      border-radius:10px;padding:6px;opacity:0;transition:opacity 0.25s;}
+    #calendar.loaded{opacity:1;}
+    .fc-theme-standard .fc-scrollgrid,.fc-theme-standard td,.fc-theme-standard th{border-color:var(--border)}
+    .fc .fc-button{background:var(--busy);border:1px solid #045983;color:#fff;min-height:40px;font-size:13px;padding:6px 10px}
+    .fc .fc-toolbar-title{font-weight:700;font-size:15px}
+    .fc-timegrid-slot{min-height:20px;}
+    .fc-event.busy{background:var(--busy)!important;border:1px solid #045983!important;color:#fff;}
+    
+    /* Frauenprojekt-Slots */
+    .fc-event.busy.frauenprojekt {
+      background:#f97316 !important;
+      border:1px solid #ea580c !important;
+      color:#fff !important;
+    }
+
+    /* Geschlossen-Band (ab 22:00, nur Weinstraße) */
+    .fc-bg-event.closed-late{
+      background: repeating-linear-gradient(45deg,#e5e7eb 0 8px,#d1d5db 8px 16px) !important;
+      opacity: 1 !important;
+      border-top: 1px solid #9ca3af !important;
+    }
+    .fc-bg-event.closed-late .fc-event-title{
+      font-style: normal;
+      font-weight: 700;
+      font-size: 12px;
+      color: #4b5563;
+      padding: 4px 6px;
+      white-space: normal;
+    }
+
+    /* Tentative holds */
+    .fc-event.tentative {
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(14,165,233,0.16) 0 10px,
+        rgba(14,165,233,0.28) 10px 20px
+      ) !important;
+      border: 2px dashed #0ea5e9 !important;
+      color: #0b3b57 !important;
+      box-shadow: inset 0 0 0 1px rgba(14,165,233,.25);
+    }
+    .fc-event.tentative .fc-event-title {
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+
+    /* ==== WI-mode Specifieke Styling ==== */
+    .fc.is-wi-mode .fc-timegrid-col, 
+    .fc.is-wi-mode .fc-daygrid-day-frame {
+      background: repeating-linear-gradient(45deg, #f1f5f9, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px) !important;
+    }
+    .fc-event.frei {
+      background: #16a34a !important;
+      border: 1px solid #14532d !important;
+      color: #fff !important;
+      cursor: pointer;
+    }
+    .fc-event.frei .fc-event-title {
+      font-weight: bold;
+      white-space: normal;
+      font-size: 13px;
+      padding: 4px;
+    }
+
+    .loading{display:flex;align-items:center;justify-content:center;padding:32px;color:var(--muted);}
+    .loading::after{content:'';width:18px;height:18px;margin-left:8px;border:2px solid var(--border);border-top:2px solid var(--brand);
+      border-radius:50%;animation:spin 1s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .mobile-add{position:fixed;bottom:16px;right:16px;z-index:40;background:var(--brand);color:white;border:none;border-radius:50%;
+      width:52px;height:52px;box-shadow:0 4px 12px rgba(0,0,0,0.15);font-size:22px;cursor:pointer;display:none;}
+    .mobile-add:hover{filter:brightness(1.1)}
+
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:50;overflow-y:auto;padding:16px;}
+    .modal{width:100%;max-width:760px;background:var(--card);border-radius:12px;border:1px solid var(--border);padding:16px;position:relative;
+      max-height:92vh;overflow-y:auto;margin:auto;box-shadow:0 20px 60px rgba(0,0,0,0.12);}
+    .modal h3{margin:0 0 10px;font-size:18px;}
+
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .grid-1{grid-template-columns:1fr}
+    .row-compact{display:grid;grid-template-columns:1fr 110px;gap:8px} 
+    .row-compact > div{display:grid;grid-template-columns:90px 1fr;gap:8px}
+    .row-phone{display:grid;grid-template-columns:140px 1fr;gap:8px}
+
+    .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,165,233,0.1);}
+    .field input.error,.field select.error{border-color:var(--warn);}
+    .field .error-msg{font-size:12px;color:var(--warn);margin-top:4px;display:none;}
+    .field input.error + .error-msg, .field select.error + .error-msg{display:block;}
+
+    .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+    .btn{padding:11px 16px;border-radius:10px;border:1px solid var(--border);background:#fff;font-weight:700;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+    .btn:disabled{opacity:0.6;cursor:not-allowed;}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    .btn.primary:hover:not(:disabled){filter:brightness(1.1)}
+    .btn.danger{background:#fff;border-color:#e5e7eb;color:#374151}
+    .btn.danger:hover{background:#f9fafb}
+
+    .hint{font-size:12px;color:var(--muted);margin-top:4px}
+    .warn{font-size:13px;color:var(--warn);margin-top:6px;display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;}
+    .warn.show{display:block;}
+    .short-term-warning{font-size:12px;color:var(--warning);margin-top:8px;display:none;background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:8px;padding:8px 10px;}
+    .short-term-warning.show{display:block;}
+
+    .badge{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:#374151;background:#f8fafc;cursor:pointer;user-select:none;transition:all 0.2s;}
+    .badge:hover{background:#f1f5f9;}
+    .badge input[type="checkbox"]{margin-right:6px;}
+
+    details.summarybox{margin-top:10px;border:1px dashed var(--border);padding:10px;border-radius:10px;background:#fafbfc}
+    details.summarybox summary{cursor:pointer;font-weight:700;font-size:14px}
+
+    .breakdown{margin-top:6px;font-size:13px;color:#374141;display:none}
+    .breakdown .row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:1px 0;}
+    .breakdown .muted{color:#6b7280}
+    .breakdown .total{font-weight:800;border-top:1px dashed var(--border);padding-top:6px;margin-top:6px}
+    .breakdown .grand{font-weight:800;border-top:1px dashed var(--border);padding-top:6px;margin-top:6px}
+
+    .tooltip-wrap{position:relative;display:inline-flex;align-items:center}
+    .tooltip-icon{cursor:pointer;font-weight:bold;margin-left:6px;user-select:none;background:var(--brand);color:white;border-radius:50%;width:16px;height:16px;
+      display:inline-flex;align-items:center;justify-content:center;font-size:10px;}
+    .tooltip-icon:hover{filter:brightness(1.1)}
+    .popover{position:absolute; top:100%; left:0; transform:translateY(8px); background:var(--popover-bg); color:var(--popover); border:1px solid var(--popover-border); border-radius:10px; padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,.08); font-size:12px; line-height:1.4; z-index:60; display:none; min-width:260px; max-width:min(90vw, 360px);}
+    .popover.show{display:block}
+    .popover::after{content:""; position:absolute; top:-6px; left:14px; width:10px; height:10px; background:var(--popover-bg); transform:rotate(45deg); border-left:1px solid var(--popover-border); border-top:1px solid var(--popover-border);}
+
+    .success-msg{position:fixed;top:16px;right:16px;z-index:70;background:#dcfce7;border:1px solid #bbf7d0;color:#166534;
+      padding:10px 14px;border-radius:10px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.1);transform:translateX(100%);transition:transform 0.3s;}
+    .success-msg.show{transform:translateX(0);}
+
+    .success-overlay{position:fixed; inset:0; z-index:120; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; padding:20px;}
+    .success-card{width:min(720px, 96vw); background:#fff; color:#0f172a; border:1px solid var(--border); border-radius:14px; padding:22px; box-shadow:0 24px 80px rgba(0,0,0,0.18);}
+    .success-card h2{ margin:0 0 10px; font-size:22px; }
+    .success-card p{ margin:6px 0; line-height:1.5; }
+    .success-summary{ margin:12px 0 0; padding:12px; border:1px dashed var(--border); border-radius:10px; background:#f8fafc; font-size:15px; }
+    .success-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
+    .success-actions .btn{ min-width:160px; }
+
+    .start-overlay{position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:20px;}
+    .start-card{width:min(1100px, 96vw);background:#fff;border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,0.18); max-height: 96vh; overflow-y: auto;}
+    .start-card h2{margin:0 0 8px;font-size:22px;}
+    .start-card-inner { display: flex; flex-direction: column; gap: 20px; margin-top: 16px; }
+    #startMap { height: 260px; border-radius: 12px; border: 1px solid var(--border); width: 100%; z-index: 1; }
+    .start-grid{display:grid;grid-template-columns:1fr;gap:14px;}
+    @media (min-width: 900px) {
+      .start-card-inner { flex-direction: row; }
+      #startMap { height: auto; min-height: 400px; flex: 1; }
+      .start-grid-wrap { flex: 1; }
+    }
+    .school-card{border:1px solid var(--border);border-radius:12px;padding:14px;background:#fff;display:flex;flex-direction:column;gap:8px;transition:transform .12s, box-shadow .12s, border-color .12s; cursor:pointer;}
+    .school-card:hover, .school-card.highlighted {transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.1);border-color:var(--brand);}
+    
+    .school-card .status{font-size:12px;color:#065f46;background:#ecfdf5;border:1px solid #a7f3d0;padding:4px 8px;border-radius:999px;width:max-content;}
+    
+    /* ==== NIEUW: Oranje label für Telefonisch Buchbar ==== */
+    .school-card .status.phone{color:#c2410c;background:#ffedd5;border-color:#fdba74;}
+    
+    .school-card.disabled{opacity:.55;filter:grayscale(0.2);background:var(--disabled-bg);}
+    .school-card.disabled .status{color:#92400e;background:#fef3c7;border-color:#fde68a;}
+
+    /* Fix für radiobuttons */
+    .field input[type="radio"] {
+      width: 16px;
+      min-height: 16px;
+      margin: 0;
+      box-shadow: none;
+    }
+
+    .row.cols-3b{grid-template-columns: 1fr 120px 1fr;} 
+    .field.sm select,.field.sm input{padding:8px 10px}
+    .checkline{display:inline-flex;align-items:center;gap:8px;font-weight:600}
+    .checkline input[type="checkbox"]{margin:0}
+    .field .error-msg{display:none}
+    .field input.error + .error-msg,
+    .field select.error + .error-msg{display:block}
+
+    /* Stepper UI für Fietsen */
+    .bike-list { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 8px; background: #fff; }
+    .bike-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+    .bike-item:not(:last-child) { border-bottom: 1px solid #f1f5f9; }
+    .bike-label { font-size: 13px; font-weight: 600; color: #374151; line-height: 1.2; }
+    .bike-label span { display: block; font-size: 11px; font-weight: normal; color: var(--muted); margin-top: 2px; }
+    .stepper { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
+    .stepper button { width: 36px; height: 36px; border: none; background: #f8fafc; color: #475569; font-size: 18px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; }
+    .stepper button:hover { background: #e2e8f0; }
+    .stepper input { width: 40px; height: 36px; border: none !important; border-left: 1px solid var(--border) !important; border-right: 1px solid var(--border) !important; text-align: center; border-radius: 0 !important; font-weight: bold; -moz-appearance: textfield; padding:0; min-height:0; }
+    .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    @media (max-width:900px){
+      .success-actions{flex-direction:column;}
+      .success-actions .btn{width:100%;}
+    }
+    @media (max-width: 720px){
+      .grid{grid-template-columns:1fr}
+      .row-compact{grid-template-columns:1fr 100px}
+      .row-compact > div{grid-template-columns:90px 1fr}
+      .row-phone{grid-template-columns:140px 1fr}
+      .fc .fc-toolbar-title{ font-size: 14px; }
+      .fc .fc-button{ min-height:40px; }
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;      
+      align-items:stretch;
+    }
+    .field label{
+      display:block;
+      font-size:13px;
+      font-weight:600;
+      line-height:1.2;
+      margin:0 0 6px 0;
+    }
+    .field input,
+    .field select,
+    .field textarea{
+      width:100%;
+      min-height:42px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:10px;
+    }
+    input[type="datetime-local"]{ line-height:normal; }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      grid-template-areas:
+        "school persons"
+        "from   to"
+        "type   type"
+        "extras extras";
+    }
+    .field--school  { grid-area: school; }
+    .field--persons { grid-area: persons; }
+    .field--from    { grid-area: from; }
+    .field--to      { grid-area: to; }
+    .field--type    { grid-area: type; }
+    .field--extras  { grid-area: extras; }
+
+    @media (max-width:720px){
+      .form-grid{
+        grid-template-columns:1fr;
+        grid-template-areas:
+          "school"
+          "persons"
+          "from"
+          "to"
+          "type"
+          "extras";
+      }
+    }
+
+    /* Error box styling */
+    #submitError{
+      display:none;
+      margin:10px 0 0;
+      padding:10px 12px;
+      border:1px solid #fecaca;
+      background:#fef2f2;
+      color:#7f1d1d;
+      border-radius:8px;
+      font-size:13px;
+      white-space:pre-wrap;
+    }
+    /* Compactere verticale spacing in de boekingspopup (zodat de knop past) */
+    #bookingModal{padding:12px}
+    #bookingModal h3{margin-bottom:6px}
+    #bookingModal .field{margin-bottom:4px}
+    #bookingModal .field label{margin:0 0 2px 0}
+    #bookingModal .form-grid{gap:8px}
+    #bookingModal .field input,
+    #bookingModal .field select,
+    #bookingModal .field textarea{min-height:36px;padding:6px 10px}
+    #bookingModal .alert{margin:4px 0 6px}
+    #bookingModal #priceHint{margin-top:2px}
+    #bookingModal .breakdown{margin-top:4px}
+    #bookingModal .modal-actions{margin-top:6px}
+    #bookingModal .sticky-bar{padding:6px 12px}
+  </style>
+</head>
+<body>
+  <div id="successMsg" class="success-msg" role="status" aria-live="polite">
+    <span id="successText">Anfrage erfolgreich gesendet!</span>
+  </div>
+
+  <div id="successOverlay" class="success-overlay" role="dialog" aria-modal="true" aria-labelledby="successTitle">
+    <div class="success-card">
+      <h2 id="successTitle">Anfrage gesendet</h2>
+      <p id="successLead" style="margin:0 0 16px; line-height:1.5;"></p>
+      <div class="success-summary" id="successSummary"></div>
+      <div class="success-actions">
+        <button class="btn" id="btnBackToCalendar">Zurück zum Kalender</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="startOverlay" class="start-overlay" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+    <div class="start-card">
+      <h2 id="startTitle">Bitte wählen Sie Ihre Verkehrsschule</h2>
+      <div class="start-card-inner">
+        <div id="startMap"></div>
+        <div class="start-grid-wrap">
+          <div class="start-grid"></div>
+          <p id="startHintBelow" class="start-hint" style="margin-top:14px;">Sie können den Standort später oben im Auswahlfeld wechseln.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <div class="left">
+      <img src="logo.webp" alt="Logo" style="display:none;" id="logoImg">
+      <h1 id="titleApp">Belegung Verkehrsschulen</h1>
+    </div>
+    <div class="controls">
+      <label for="schoolSelect" id="labelSchool">Standort</label>
+      <select id="schoolSelect">
+        <option value="" disabled selected id="loadingOption">Lade Standorte...</option>
+      </select>
+
+      <label for="langSelect" id="labelLang">Sprache</label>
+      <select id="langSelect">
+        <option value="de" selected>Deutsch</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="intro">
+    <p id="introLine1">Wählen Sie oben Ihre Verkehrsschule. Blaue Blöcke sind bereits belegt. Tippen oder ziehen Sie im Kalender, um einen Zeitraum auszuwählen und eine Anfrage zu senden.</p>
+    <p id="introHint" class="hint">Hinweis: Ihre Anfrage ist unverbindlich. Wir melden uns per E-Mail mit einer Bestätigung.</p>
+  </div>
+
+  <div id="calendarLoading" class="loading">Lade Kalender...</div>
+  <div id="calendar"></div>
+
+  <button id="mobileAdd" class="mobile-add" title="Zeitslot hinzufügen" aria-label="Zeitslot hinzufügen">+</button>
+
+  <div id="modalBackdrop" class="modal-backdrop">
+    
+    <div class="modal" id="bookingModal" role="dialog" aria-modal="true">
+      <h3 id="modalTitle">Anfrage Nutzung Verkehrsschule</h3>
+      <button type="button" class="close-x" id="btnCloseX" aria-label="Schließen">×</button>
+
+      <div class="alert warn" id="alertConflict" style="display:none;"></div>
+      <div class="alert note" id="alertShort" style="display:none;"></div>
+
+      <div class="alert warn" id="alertLate" style="display:none;"></div>
+      
+      <div class="alert warn" id="alertOverlap" style="display:none; background:#fef2f2; border-color:#fecaca; color:#991b1b;">
+        <strong style="display:block;">⚠️ <span id="overlapWarningText"></span></strong>
+      </div>
+
+      <form id="requestForm" name="requestForm" novalidate>
+        
+        <div id="step1">
+          <div class="form-grid">
+            <div class="field field--school">
+              <label id="labelFormSchool">Verkehrsschule *</label>
+              <input id="fSchool" name="school" type="text" required readonly>
+            </div>
+
+            <div class="field field--persons">
+              <label style="display:flex;align-items:center;">
+                <span id="labelPersons">Anzahl Personen *</span>
+                <span class="tooltip-wrap" id="personsInfoWrap">
+                  <span id="personsInfo" class="tooltip-icon" role="button" aria-haspopup="dialog" aria-expanded="false" tabindex="0">?</span>
+                  <div id="personsInfoPopover" class="popover" role="dialog" aria-hidden="true">Die angegebene Personenzahl ist Grundlage für Planung und Nutzungsentgelt und bis zur Veranstaltung anpassbar. Kommen unangemeldet mehr Gäste, fällt ein Aufschlag an.</div>
+                </span>
+              </label>
+              <input id="fPersons" name="persons" type="number" min="1" step="1" placeholder="z. B. 30" required aria-describedby="err-persons">
+              <div class="error-msg" id="err-persons">Bitte Anzahl eingeben</div>
+            </div>
+
+            <div class="field field--from">
+              <label id="labelFrom">Datum von *</label>
+              <input id="fFrom" name="from" type="datetime-local" required>
+            </div>
+
+            <div class="field field--to">
+              <label id="labelTo">Datum bis *</label>
+              <input id="fTo" name="to" type="datetime-local" required>
+            </div>
+
+            <div class="field field--type">
+              <label id="labelType">Art der Feier</label>
+              <input id="fTypeFree" name="type_free" type="text" placeholder="z. B. Kindergeburtstag, Jubiläum, …">
+            </div>
+
+            <div class="field field--extras">
+              <label id="labelExtras">Extras</label>
+              <div class="extras" id="extrasContainer"></div>
+              <div class="hint" id="extrasRunning" style="margin-top:4px">Extras: 0€</div>
+            </div>
+          </div>
+
+          <div id="priceBox" class="price" aria-live="polite">
+            <span class="pill"><strong id="priceTitle">Vorläufige Preisindikation:</strong> <span id="priceValue">–</span></span>
+            <span id="priceToggle" class="toggle">Details</span>
+          </div>
+          <div id="priceHint" class="hint">(unverbindlich; endgültige Bestätigung und ggf. Anpassungen vorbehalten)</div>
+
+          <div id="priceBreakdown" class="breakdown">
+            <div class="row"><span id="bdBaseLabel" class="muted">Basis</span><span id="bdBase">–</span></div>
+            <div class="row"><span id="bdPersonsLabel" class="muted">Personen-Staffel</span><span id="bdPersons">–</span></div>
+            <div class="row">
+              <span class="muted tooltip-wrap">
+                <span id="bdTimeLabel">Zeit-Zuschlag</span>
+                <span id="timeInfo" class="tooltip-icon" aria-haspopup="dialog" aria-expanded="false" tabindex="0">?</span>
+                <div id="timeInfoPopover" class="popover" role="dialog" aria-hidden="true">35 € Zuschlag, wenn Beginn und/oder Ende nicht zwischen 9:00–17:30 Uhr liegen oder wenn der Zeitraum (auch teilweise) am Wochenende liegt.</div>
+              </span>
+              <span id="bdTime">–</span>
+            </div>
+            <div class="row"><span id="bdExtrasLabel" class="muted">Extras</span><span id="bdExtras">–</span></div>
+
+            <div class="row total"><span id="bdTotalLabel">Summe</span><span id="bdTotal">–</span></div>
+
+            <div class="row" id="bdDepositRow" style="display:none">
+              <span class="muted">Kaution</span><span id="bdDeposit">–</span>
+            </div>
+
+            <div class="row grand" id="bdGrandTotalRow" style="display:none">
+              <span id="bdGrandTotalLabel">Summe inkl. Kaution</span><span id="bdGrandTotal">–</span>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn primary" id="btnToStep2">Weiter</button>
+          </div>
+        </div>
+
+        <div id="step2" style="display:none">
+          <div class="grid">
+            <div class="row cols-3" style="grid-column:1/-1">
+              <div class="field sm">
+                <label id="labelSalutation">Anrede</label>
+                <select id="fSalutation" name="salutation">
+                  <option value=""></option>
+                  <option value="Frau">Frau</option>
+                  <option value="Herr">Herr</option>
+                  <option value="Divers">Divers</option>
+                  <option value="Keine Angabe">Keine Angabe</option>
+                </select>
+              </div>
+              <div class="field">
+                <label id="labelFirstName">Vorname</label>
+                <input id="fFirstName" name="first_name" type="text" placeholder="z. B. Alex" autocomplete="given-name">
+              </div>
+              <div class="field">
+                <label id="labelLastName">Nachname</label>
+                <input id="fLastName" name="last_name" type="text" placeholder="z. B. Müller" autocomplete="family-name">
+              </div>
+            </div>
+
+            <div class="row cols-contact" style="grid-column:1/-1">
+              <div class="field">
+                <label id="labelEmail">E-Mail *</label>
+                <input id="fEmail" name="email" type="email" required placeholder="name@example.org" autocomplete="email" aria-describedby="err-email">
+                <div class="error-msg" id="err-email">Gültige E-Mail-Adresse erforderlich</div>
+              </div>
+              <div class="field sm">
+                <label id="labelPhoneCountry">Vorwahl</label>
+                <input id="fPhoneCountry" name="phone_country" type="text" value="+49" inputmode="tel" pattern="^\+\d{1,4}$" list="dialCodes" placeholder="+49">
+                <datalist id="dialCodes">
+                  <option value="+49"><option value="+43"><option value="+41"><option value="+44"><option value="+33">
+                  <option value="+39"><option value="+34"><option value="+32"><option value="+1"><option value="+61">
+                  <option value="+31"><option value="+48"><option value="+46"><option value="+45"><option value="+420">
+                </datalist>
+              </div>
+              <div class="field">
+                <label id="labelPhone">Telefon *</label>
+                <input id="fPhoneNat" name="phone_national" type="tel" inputmode="tel" placeholder="z. B. 1512345678" required autocomplete="tel-national" aria-describedby="err-phone">
+                <div class="error-msg" id="err-phone">Bitte eine gültige Nummer angeben</div>
+              </div>
+            </div>
+
+            <div class="field" style="grid-column:1/-1">
+              <label id="labelAddress">Anschrift *</label>
+              <div class="row-compact">
+                <input id="fStreet" name="street" type="text" placeholder="Straße" required autocomplete="address-line1">
+                <input id="fHouse"  name="house"  type="text" placeholder="Nr." required autocomplete="on">
+                <div style="display:grid;grid-template-columns:90px 1fr;gap:8px">
+                  <input id="fZip"   type="text" placeholder="PLZ" required inputmode="numeric" pattern="[0-9]*" autocomplete="postal-code">
+                  <input id="fCity"  type="text" placeholder="Ort" required autocomplete="address-level2">
+                </div>
+              </div>
+              <input id="fZipCity" name="zipcity" type="hidden">
+              <input id="fAddressFull" name="address" type="hidden">
+              <div class="hint" id="addrHintHelp" style="margin-top:6px;display:none"></div>
+            </div>
+
+            <div class="field" id="bikesWrapper" style="grid-column:1/-1; display:none;">
+              <fieldset style="border:none; padding:0; margin:0;">
+                <legend id="labelBikesQuestion" style="font-size:13px; font-weight:600; margin-bottom:6px;">Möchten Sie die Kinderfahrräder der Verkehrsschule nutzen? *</legend>
+                <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom: 8px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:normal; cursor:pointer;">
+                    <input type="radio" name="bikes_choice" value="yes" id="fBikesYes"> <span id="labelBikesYes">Ja, ich möchte Fahrräder nutzen</span>
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; font-weight:normal; cursor:pointer;">
+                    <input type="radio" name="bikes_choice" value="no" id="fBikesNo"> <span id="labelBikesNo">Nein, brauche keine / bringe eigene mit</span>
+                  </label>
+                </div>
+                <div class="error-msg" id="err-bikeschoice" style="margin-top:-4px; margin-bottom:8px;">Bitte auswählen</div>
+              </fieldset>
+
+              <div id="bikesDetailsWrapper" style="display:none; margin-top:4px;">
+                <label id="labelBikesDetails" style="margin-bottom:8px;">Anzahl Fahrräder nach Größe/Alter (1 € / Fahrrad, max. 5 pro Größe) *</label>
+                <div class="bike-list">
+                  <div class="bike-item">
+                    <div class="bike-label">Laufräder <span>(2-3 Jahre)</span></div>
+                    <div class="stepper">
+                      <button type="button" class="btn-minus" data-target="fBikesLauf">−</button>
+                      <input type="number" id="fBikesLauf" min="0" max="5" value="0" readonly>
+                      <button type="button" class="btn-plus" data-target="fBikesLauf">+</button>
+                    </div>
+                  </div>
+                  <div class="bike-item">
+                    <div class="bike-label">12 Zoll <span>(3-4 Jahre)</span></div>
+                    <div class="stepper">
+                      <button type="button" class="btn-minus" data-target="fBikes12">−</button>
+                      <input type="number" id="fBikes12" min="0" max="5" value="0" readonly>
+                      <button type="button" class="btn-plus" data-target="fBikes12">+</button>
+                    </div>
+                  </div>
+                  <div class="bike-item">
+                    <div class="bike-label">16 Zoll <span>(4-6 Jahre)</span></div>
+                    <div class="stepper">
+                      <button type="button" class="btn-minus" data-target="fBikes16">−</button>
+                      <input type="number" id="fBikes16" min="0" max="5" value="0" readonly>
+                      <button type="button" class="btn-plus" data-target="fBikes16">+</button>
+                    </div>
+                  </div>
+                  <div class="bike-item">
+                    <div class="bike-label">20 Zoll <span>(6-8 Jahre)</span></div>
+                    <div class="stepper">
+                      <button type="button" class="btn-minus" data-target="fBikes20">−</button>
+                      <input type="number" id="fBikes20" min="0" max="5" value="0" readonly>
+                      <button type="button" class="btn-plus" data-target="fBikes20">+</button>
+                    </div>
+                  </div>
+                  <div class="bike-item">
+                    <div class="bike-label">24 Zoll <span>(8-10 Jahre)</span></div>
+                    <div class="stepper">
+                      <button type="button" class="btn-minus" data-target="fBikes24">−</button>
+                      <input type="number" id="fBikes24" min="0" max="5" value="0" readonly>
+                      <button type="button" class="btn-plus" data-target="fBikes24">+</button>
+                    </div>
+                  </div>
+                  <div class="bike-item">
+                    <div class="bike-label">26 Zoll <span>(10-14 Jahre)</span></div>
+                    <div class="stepper">
+                      <button type="button" class="btn-minus" data-target="fBikes26">−</button>
+                      <input type="number" id="fBikes26" min="0" max="5" value="0" readonly>
+                      <button type="button" class="btn-plus" data-target="fBikes26">+</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="error-msg" id="err-bikesdetails">Bitte mindestens 1 Fahrrad auswählen</div>
+              </div>
+            </div>
+
+            <div class="field" style="grid-column:1/-1">
+              <label id="labelMsg">Nachricht (optional)</label>
+              <textarea id="fMsg" name="message" rows="3" placeholder="Weitere Hinweise…"></textarea>
+            </div>
+          </div>
+
+          <details class="summarybox">
+            <summary id="termsSummary">Wesentliche Bedingungen (Kurzfassung)</summary>
+            <ul id="termsList" style="margin:8px 0 0 16px;padding:0"></ul>
+          </details>
+
+          <div class="modal-actions" style="justify-content:space-between">
+            <button type="button" class="btn" id="btnBackStep1">Zurück</button>
+          </div>
+        </div>
+
+        <div class="sticky-bar" id="stickyBar">
+          <div class="sum" id="stickySum">
+            <b id="stickyPrice">–</b> · <span id="stickyWhen">–</span> · <span id="stickyPersons">–</span>
+          </div>
+          <label class="checkline" style="margin-left:auto;margin-right:6px">
+            <input type="checkbox" id="fAccept"> <span id="labelAccept">Ich habe die wesentlichen Bedingungen gelesen und akzeptiere sie.</span>
+          </label>
+          <button type="submit" class="btn primary" id="btnSubmit" disabled>Anfrage senden</button>
+        </div>
+
+        <div id="submitError"></div>
+
+        <noscript>
+          <p class="hint">JavaScript ist deaktiviert. Nach dem Absenden wird das Formular neu geladen.</p>
+        </noscript>
+      </form>
+    </div>
+
+    <div class="modal" id="wiInfoModal" role="dialog" aria-modal="true" style="display:none; max-width: 480px; text-align: center;">
+      <h3 id="wiInfoTitle">Buchung Verkehrsschule Wiener Straße</h3>
+      <button type="button" class="close-x" id="btnWiCloseX" aria-label="Schließen">×</button>
+      
+      <p style="margin: 18px 0; line-height: 1.6;" id="wiInfoText">
+        Die Verkehrsschule Wiener Straße kann <strong>nicht online</strong> gebucht werden.<br><br>
+        Grüne Blöcke im Kalender sind voraussichtlich frei. Bitte rufen Sie uns an, um Details zu besprechen und Ihre Buchung vorzunehmen: <br><br>
+        <strong style="font-size: 18px; color: var(--brand);"><a href="tel:+493022502486" style="color: inherit; text-decoration: none;">030 22502486</a></strong>
+      </p>
+      
+      <div class="modal-actions" style="justify-content: center;">
+        <button type="button" class="btn primary" id="btnWiOk">Verstanden</button>
+      </div>
+    </div>
+    </div>
+
+  <script>
+    /* ================================
+       I18N
+       ================================ */
+    const I18N = {
+      de: {
+        appTitle: "Belegung Verkehrsschulen",
+        labelSchool: "Standort",
+        labelLang: "Sprache",
+        loadingSchools: "Lade Standorte...",
+        loadingCalendar: "Lade Kalender...",
+        intro1: "Wählen Sie oben Ihre Verkehrsschule. Blaue Blöcke sind bereits belegt. Tippen oder ziehen Sie im Kalender, um einen Zeitraum auszuwählen und eine Anfrage zu senden.",
+        introHint: "Hinweis: Ihre Anfrage ist unverbindlich. Wir melden uns per E-Mail mit einer Bestätigung.",
+        modalTitle: "Anfrage Nutzung Verkehrsschule",
+        formSchool: "Verkehrsschule",
+        persons: "Anzahl Personen",
+        from: "Von",
+        to: "Bis",
+        salutation: "Anrede",
+        firstName: "Vorname",
+        lastName: "Nachname",
+        email: "E-Mail",
+        phoneCountry: "Vorwahl",
+        phone: "Telefon",
+        address: "Anschrift",
+        type: "Art der Feier",
+        bikesQuestion: "Möchten Sie die Kinderfahrräder der Verkehrsschule nutzen? *",
+        bikesYes: "Ja, ich möchte Fahrräder nutzen",
+        bikesNo: "Nein, brauche keine / bringe eigene mit",
+        bikesDetails: "Anzahl Fahrräder nach Größe/Alter (1 € / Fahrrad, max. 5 pro Größe) *",
+        errBikesChoice: "Bitte eine Option auswählen",
+        errBikesDetails: "Bitte mindestens 1 Fahrrad auswählen",
+        extras: "Extras",
+        extraParcours: "Fahrradparcours",
+        extraGrill: "Grill",
+        extraTisch: "Tischtennisplatte",
+        message: "Nachricht (optional)",
+        accept: "Ich habe die wesentlichen Bedingungen gelesen und akzeptiere sie.",
+        overlapWarning: "In diesem Zeitraum liegt bereits eine Reservierung vor. Eine Buchung ist leider nicht möglich.",
+        conflict: "Ungültige Zeit (Ende vor Beginn) oder Zeitraum zu kurz (min. 30 Min).",
+        shortTermWarning: "<strong>Kurzfristige Anfrage:</strong> Da Ihr gewünschter Termin in weniger als 7 Tagen liegt, können wir nicht garantieren, dass wir Ihre Anfrage rechtzeitig bearbeiten können.",
+        lateBlocked: "Veranstaltungen an der Verkehrsschule Weinstraße können nur bis 22:00 Uhr stattfinden. Bitte wählen Sie ein Ende spätestens um 22:00 Uhr.",
+        lateClamped: "Hinweis: An der Verkehrsschule Weinstraße enden Veranstaltungen spätestens um 22:00 Uhr. Die gewählte Zeit wurde entsprechend angepasst.",
+        closedLabel: "Ab 22:00 Uhr geschlossen",
+        priceTitle: "Vorläufige Preisindikation:",
+        priceHint: " (unverbindlich; endgültige Bestätigung und ggf. Anpassungen vorbehalten)",
+        termsSummary: "Wesentliche Bedingungen (Kurzfassung)",
+        terms: [
+          "Nutzungsentgelt vorab per Überweisung; Reservierung erst verbindlich nach Zahlungseingang.",
+          "Stornierung bis 14 Tage vor Termin: volle Erstattung; danach Einbehalt als Entschädigung.",
+          "Saubere Übergabe; Müll bitte mitnehmen. Unzureichende Reinigung kann berechnet werden.",
+          "Rücksicht auf Nachbarn: werktags & So ab 20:00, Sa ab 22:00 Lautstärke reduzieren.",
+          "Rauchverbot auf dem Gelände (nur außerhalb, Aschenbecher nutzen).",
+          "Nutzung auf eigene Gefahr; empfohlen: Veranstaltungshaftpflichtversicherung.",
+          "Für verursachte Schäden haften die Nutzer*innen.",
+          "Kein exklusives Nutzungsrecht am gesamten Gelände; ggf. Parallelnutzungen ohne Konflikte.",
+          "Mo–Sa 14:00–18:00 Kinderfreizeitprojekt: Innenraum steht Ihnen exklusiv zur Verfügung.",
+          "Verspätete An-/Abmeldung kann mit 50 €/angefangene Stunde berechnet werden."
+        ],
+        btnCancel: "Abbrechen",
+        btnSend: "Anfrage senden",
+        phPersons: "z. B. 30",
+        phType: "z. B. Kindergeburtstag, Jubiläum, …",
+        bdBase: (tier)=>`Basis (bis ${tier} Std.)`,
+        bdPersons: (label)=>`Personen-Staffel (${label})`,
+        bdTime: "Zeit-Zuschlag",
+        bdExtras: "Extras",
+        bdTotal: "Summe",
+        bdNoExtras: "keine",
+        priceOnReq: "Preis nach Vereinbarung",
+        bdTimeInfo: "35 € Zuschlag, wenn Beginn und/oder Ende nicht zwischen 9:00–17:30 Uhr liegen oder wenn der Zeitraum (auch teilweise) am Wochenende liegt.",
+        personsInfo: "Die angegebene Personenzahl ist Grundlage für Planung und Nutzungsentgelt und bis zur Veranstaltung anpassbar. Kommen unangemeldet mehr Gäste, fällt ein Aufschlag an.",
+        successTitle: "Anfrage gesendet",
+        successLead: "Vielen Dank. Ihre Anfrage ist noch nicht verbindlich. Wir prüfen die Angaben und melden uns per E-Mail. Sie erhalten dann die Nutzungsvereinbarung sowie weitere Hinweise.",
+        successBack: "Zurück zum Kalender",
+        successNew: "Neue Anfrage",
+        successSummaryLabels: { school: "Standort", from: "Von", to: "Bis", persons: "Personen", extras: "Extras", message: "Nachricht" },
+        startTitle: "Bitte wählen Sie Ihre Verkehrsschule",
+        startLead: "Einige Standorte sind ggf. noch nicht online buchbar.",
+        startHint: "Sie können den Standort später oben im Auswahlfeld wechseln.",
+        onlineBookable: "Online buchbar",
+        phoneBookable: "Telefonisch buchbar",
+        notOnline: "Derzeit nicht online buchbar",
+        choose: "Auswählen",
+        
+        wiInfoTitle: "Buchung Verkehrsschule Wiener Straße",
+        wiInfoText: `Die Verkehrsschule Wiener Straße kann <strong>nicht online</strong> gebucht werden.<br><br>Grüne Blöcke im Kalender sind voraussichtlich frei. Bitte rufen Sie uns an, um Details zu besprechen und Ihre Buchung vorzunehmen: <br><br><strong style="font-size: 18px; color: var(--brand);"><a href="tel:+493022502486" style="color: inherit; text-decoration: none;">030 22502486</a></strong>`,
+        wiInfoOk: "Verstanden",
+        successAdditional: (school, date, start, end, mailto) => `Sie haben eine Anfrage für die Verkehrsschule ${school} am ${date} von ${start} bis ${end} eingereicht. Wir melden uns per E-Mail bei Ihnen.<br><br>Haben Sie bei der Einreichung dieser Anfrage einen Fehler gemacht oder diese Anfrage versehentlich eingereicht, schreiben Sie uns bitte an <a href="${mailto}">events@kidbike.de</a>.`
+      },
+      en: {
+        appTitle: "Traffic School Availability",
+        labelSchool: "Location",
+        labelLang: "Language",
+        loadingSchools: "Loading locations...",
+        loadingCalendar: "Loading calendar...",
+        intro1: "Pick your location above. Blue blocks are already booked. Tap or drag in the calendar to select a time and send a request.",
+        introHint: "Note: Your request is non-binding. We'll confirm by email.",
+        modalTitle: "Request to Use Traffic School",
+        formSchool: "Traffic school",
+        persons: "Number of people",
+        from: "From",
+        to: "Until",
+        salutation: "Salutation",
+        firstName: "First name",
+        lastName: "Last name",
+        email: "Email",
+        phoneCountry: "Country code",
+        phone: "Phone number",
+        address: "Address",
+        type: "Type of event",
+        bikesQuestion: "Would you like to use the traffic school's kids' bikes? *",
+        bikesYes: "Yes, I want to use the bikes",
+        bikesNo: "No, I don't need bikes / will bring my own",
+        bikesDetails: "Number of bikes by size/age (€1 / bike, max 5 per size) *",
+        errBikesChoice: "Please select an option",
+        errBikesDetails: "Please select at least 1 bike",
+        extras: "Extras",
+        extraParcours: "Bike course",
+        extraGrill: "Grill",
+        extraTisch: "Table tennis",
+        message: "Message (optional)",
+        accept: "I have read and accept the key conditions.",
+        overlapWarning: "There is already a reservation in this time slot. Booking is not possible.",
+        conflict: "Invalid time (end before start) or too short (min. 30 mins).",
+        shortTermWarning: "<strong>Short-notice request:</strong> As your requested time is in less than 7 days, we cannot guarantee timely processing.",
+        lateBlocked: "Events at the Weinstraße traffic school can only take place until 22:00. Please choose an end time no later than 22:00.",
+        lateClamped: "Note: At the Weinstraße traffic school events end at 22:00 at the latest. The selected time has been adjusted accordingly.",
+        closedLabel: "Closed from 22:00",
+        priceTitle: "Preliminary price indication:",
+        priceHint: " (non-binding; subject to confirmation and possible adjustments)",
+        termsSummary: "Key conditions (short version)",
+        terms: [
+          "Pay in advance by bank transfer; booking becomes binding only after receipt of payment.",
+          "Cancellation up to 14 days before: full refund; after that, fee retained as compensation.",
+          "Leave the venue clean; take your rubbish with you. Extra cleaning may be charged.",
+          "Be mindful of neighbours: lower noise after 20:00 (Mon–Fri & Sun) and after 22:00 (Sat).",
+          "No smoking on the premises (outside only; use an ashtray).",
+          "Use at your own risk; event liability insurance recommended.",
+          "Users are liable for any damages caused.",
+          "No exclusive right to the entire site; parallel use may occur without conflicts.",
+          "Mon–Sat 14:00–18:00 kids' project: indoor room is exclusively yours.",
+          "Late start/overrun may be charged at €50 per started hour."
+        ],
+        btnCancel: "Cancel",
+        btnSend: "Send request",
+        phPersons: "e.g. 30",
+        phType: "e.g. kids' birthday, anniversary …",
+        bdBase: (tier)=>`Base (up to ${tier} h)`,
+        bdPersons: (label)=>`People tier (${label})`,
+        bdTime: "Time surcharge",
+        bdExtras: "Extras",
+        bdTotal: "Total",
+        bdNoExtras: "none",
+        priceOnReq: "Price on request",
+        bdTimeInfo: "€35 surcharge if start AND end are not between 9:00–17:30, or if any part of the booking falls on a weekend.",
+        personsInfo: "The number you enter is the basis for planning and the fee, and can be adjusted until the event. If more guests attend unannounced, a surcharge applies.",
+        successTitle: "Request submitted",
+        successLead: "Thank you. Your request is not yet binding. We will review the details and contact you by email. You will then receive the usage agreement and further instructions.",
+        successBack: "Back to calendar",
+        successNew: "New request",
+        successSummaryLabels: { school: "Location", from: "From", to: "To", persons: "People", extras: "Extras", message: "Message" },
+        startTitle: "Please choose your traffic school",
+        startLead: "Some locations may not yet be available for online booking.",
+        startHint: "You can change the location later from the selector above.",
+        onlineBookable: "Bookable online",
+        phoneBookable: "Bookable by phone",
+        notOnline: "Currently not online bookable",
+        choose: "Choose",
+        
+        wiInfoTitle: "Booking Traffic School Wiener Straße",
+        wiInfoText: `The Wiener Straße traffic school <strong>cannot be booked online</strong>.<br><br>Green blocks in the calendar are likely available. Please call us to discuss the details and to make a booking: <br><br><strong style="font-size: 18px; color: var(--brand);"><a href="tel:+493022502486" style="color: inherit; text-decoration: none;">030 22502486</a></strong>`,
+        wiInfoOk: "Got it",
+        successAdditional: (school, date, start, end, mailto) => `You have submitted a request for the Traffic School ${school} on ${date} from ${start} to ${end}. We will contact you by email.<br><br>If you made a mistake when submitting this request or submitted it by accident, please write to us at <a href="${mailto}">events@kidbike.de</a>.`
+      }
+    };
+
+    function getTermsForSchool(lang, key){
+      const base = (I18N[lang] || I18N.de).terms.slice();
+      if (key === 'WA') {
+        const filtered = base.filter(t => !/Parallel/i.test(t));
+        const extraDe = "Schlüssel-Übergabe und -Rückgabe sind vorab mit der Mitarbeiter*in vor Ort abzustimmen.";
+        const extraEn = "Key handover and return must be arranged in advance with the staff on site.";
+        filtered.push(lang === 'en' ? extraEn : extraDe);
+        return filtered;
+      }
+      return base;
+    }
+
+    const SCHOOLS = {
+      WE: { name: "Verkehrsschule Weinstraße",        short:"Weinstraße",     file: "events-we.json", address: "Weinstraße 2, 10249 Berlin", coords: [52.5255, 13.4411] },
+      WA: { name: "Verkehrsschule am Wassertorplatz", short:"Wassertorplatz", file: "events-wa.json", address: "Wassertorplatz 1, 10999 Berlin", coords: [52.4983, 13.4079] },
+      WI: { name: "Verkehrsschule Wiener Straße",     short:"Wiener Straße",  file: "events-wi.json", address: "Wiener Str. 59c, 10999 Berlin", coords: [52.4967, 13.4363] }
+    };
+    const FORCE_OFFLINE = {};
+
+    /* ===== Sluitingstijd (alleen Weinstraße) ===== */
+    const CLOSING_SCHOOLS = { WE: 22 };  // key -> sluitingsuur
+
+    /* Hoe ver het rooster maximaal mag doorlopen ná middernacht (28 = tot 04:00).
+       Evenementen die over middernacht heen lopen blijven zo volledig zichtbaar. */
+    const GRID_MAX_END_HOUR = 28;
+
+    /* Bepaalt de onderkant van het rooster: standaard zoals voorheen
+       (24:00 met sluitingsregel, anders 22:00), maar groeit mee wanneer er
+       daadwerkelijk evenementen zijn die tot ná middernacht doorlopen. */
+    function computeGridEndHour(key, events){
+      const base = hasClosingLimit(key) ? 24 : 22;
+      let maxH = base;
+      (events || []).forEach(ev => {
+        const s = (ev.start instanceof Date) ? ev.start : new Date(ev.start);
+        const e = (ev.end   instanceof Date) ? ev.end   : new Date(ev.end);
+        if (isNaN(s.getTime()) || isNaN(e.getTime())) return;
+        const dayStart = new Date(s); dayStart.setHours(0,0,0,0);
+        const h = Math.ceil((e - dayStart) / 3600000);
+        if (h > maxH) maxH = h;
+      });
+      return Math.max(base, Math.min(GRID_MAX_END_HOUR, maxH));
+    }
+
+    function closingHour(key){
+      const k = (key === undefined) ? currentKey : key;
+      return (k && CLOSING_SCHOOLS[k] !== undefined) ? CLOSING_SCHOOLS[k] : null;
+    }
+    function hasClosingLimit(key){ return closingHour(key) !== null; }
+
+    function defaultSurcharge30(start, end){
+      const validTime = (dt)=> {
+        const m = dt.getHours()*60 + dt.getMinutes();
+        return (m >= 9*60) && (m <= 17*60 + 30);
+      };
+      const bothOutside = !(validTime(start) && validTime(end));
+
+      function touchesWeekend(s,e){
+        const cur = new Date(s); cur.setHours(0,0,0,0);
+        const endDay = new Date(e); endDay.setHours(23,59,59,999);
+        while(cur <= endDay){ const d=cur.getDay(); if(d===0||d===6) return true; cur.setDate(cur.getDate()+1); }
+        return false;
+      }
+      return (bothOutside || touchesWeekend(start,end)) ? 35 : 0;
+    }
+
+    const PRICING = {
+      WE: {
+        tiers: [
+          { maxMin: 240, hoursLabel: 4,  base: 100 },
+          { maxMin: 360, hoursLabel: 6,  base: 130 },
+          { maxMin: 480, hoursLabel: 8,  base: 160 },
+          { maxMin: 600, hoursLabel:10,  base: 190 },
+          { maxMin: 720, hoursLabel:12,  base: 220 },
+          { maxMin: 960, hoursLabel:16,  base: 280 },
+          { maxMin:1440, hoursLabel:24,  base: 360 },
+        ],
+        personTiers: [
+          { max: 30, mult: 1.00, label: "≤30" },
+          { max: 40, mult: 1.25, label: "≤40" },
+          { max: 50, mult: 1.50, label: "≤50" },
+          { max: 75, mult: 1.75, label: "≤75" },
+          { max:100, mult: 2.00, label: "≤100" },
+        ],
+        surcharge: defaultSurcharge30,
+        extras: [
+          { id: "parcours",  price: 10, labelDe: "Fahrradparcours",  labelEn: "Bike course" },
+          { id: "grill",     price: 10, labelDe: "Grill",            labelEn: "Grill" },
+          { id: "tisch",     price: 10, labelDe: "Tischtennisplatte",labelEn: "Table tennis" },
+        ],
+        // Kaution-regels Weinstraße:
+        // - ≤50 pers., volledig binnen 9:00–17:30 op ma–za  -> geen Kaution
+        // - >50 pers., binnen 9:00–17:30 op ma–za           -> 200 €
+        // - >50 pers. buiten dat venster OF eind later dan 22:00 -> 500 €
+        //   (die laatste tak is sinds de 22:00-sluiting niet meer bereikbaar voor nieuwe boekingen)
+        // - alle overige gevallen                            -> 200 €
+        cautionFn(persons, start, end){
+          const p = Number(persons || 0);
+          if (!p || !start || !end) return null;
+
+          const withinDayTimes = (dt)=>{
+            const m = dt.getHours()*60 + dt.getMinutes();
+            return (m >= 9*60) && (m <= 17*60 + 30);
+          };
+          const crossesMidnight = start.toDateString() !== end.toDateString();
+          const touchesSunday = (()=>{
+            const cur = new Date(start); cur.setHours(0,0,0,0);
+            const endDay = new Date(end); endDay.setHours(23,59,59,999);
+            while(cur <= endDay){ if(cur.getDay() === 0) return true; cur.setDate(cur.getDate()+1); }
+            return false;
+          })();
+          const runsPast22 = crossesMidnight
+            || (end.getHours()*60 + end.getMinutes()) > 22*60
+            || (start.getHours()*60 + start.getMinutes()) > 22*60;
+
+          // Volledig binnen 9:00–17:30 én uitsluitend ma–za
+          const inWindow = !crossesMidnight && withinDayTimes(start) && withinDayTimes(end) && !touchesSunday;
+
+          if (runsPast22) return 500;          // loopt tot na 22:00
+          if (p > 50 && !inWindow) return 500; // >50 personen buiten het venster
+          if (p > 50) return 200;              // >50 personen binnen het venster
+          if (inWindow) return null;           // ≤50 personen binnen het venster: geen Kaution
+          return 200;                          // alle overige gevallen
+        }
+      },
+      WI: {
+        tiers: [
+          { maxMin: 240, hoursLabel: 4,  base: 100 },
+          { maxMin: 360, hoursLabel: 6,  base: 130 },
+          { maxMin: 480, hoursLabel: 8,  base: 160 },
+          { maxMin: 600, hoursLabel:10,  base: 190 },
+          { maxMin: 720, hoursLabel:12,  base: 220 },
+          { maxMin: 960, hoursLabel:16,  base: 280 },
+          { maxMin:1440, hoursLabel:24,  base: 360 },
+        ],
+        personTiers: [
+          { max: 30, mult: 1.00, label: "≤30" },
+          { max: 40, mult: 1.25, label: "≤40" },
+          { max: 50, mult: 1.50, label: "≤50" },
+          { max: 75, mult: 1.75, label: "≤75" },
+          { max:100, mult: 2.00, label: "≤100" },
+        ],
+        surcharge: defaultSurcharge30,
+        extras: []
+      },
+      WA: {
+        tiers: [
+          { maxMin: 720, hoursLabel: 12, base: 140 },
+          { maxMin: 960, hoursLabel: 16, base: 200 },
+        ],
+        usePersonBands: true,
+        personBands: [
+          { max: 45,   addByTier: { 12: 0,  16: 0   },  label: "≤45" },
+          { max: 9999, addByTier: { 12: 80, 16: 110 },  label: "≥46" }
+        ],
+        surcharge: () => 0,
+        extras: [],
+        cautionFn(persons){
+          const p = Number(persons || 0);
+          if (!p) return null;
+          return (p <= 45) ? 50 : 70;
+        }
+      }
+    };
+
+    function isTouchDevice(){
+      return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+    }
+
+    function renderExtrasForSchool(key){
+      const container = document.getElementById('extrasContainer');
+      container.innerHTML = '';
+      const cfg = PRICING[key] || PRICING.WE;
+      (cfg.extras || []).forEach(ex => {
+        const id = `x_${ex.id}`;
+        const label = (langSelect.value==='en' ? ex.labelEn : ex.labelDe) || ex.id;
+        const wrap = document.createElement('label');
+        wrap.className = 'badge';
+        wrap.innerHTML = `
+          <input type="checkbox" id="${id}" name="extras[]" data-price="${ex.price}" data-label-de="${ex.labelDe||''}" data-label-en="${ex.labelEn||''}">
+          <span>${label}</span><span class="price">+${euro(ex.price).replace(/\s/g,'')}</span>
+        `;
+        container.appendChild(wrap);
+      });
+
+      container.querySelectorAll('input[type="checkbox"]').forEach(el=>{
+        el.addEventListener('change', ()=>{ updatePricePreview(); });
+      });
+
+      const extrasField = document.querySelector('.field--extras');
+      if (extrasField) {
+        extrasField.style.display = (cfg.extras && cfg.extras.length) ? '' : 'none';
+      }
+    }
+
+    let calendar = null;
+    let startMapObj = null;
+    let mapMarkers = {};
+    let currentKey = null;
+    let busyEvents = [];
+    let currentHolds = [];
+    let wasSubmitted = false;
+    let lateClampNotice = false;
+    let currentGridEndHour = 24;
+    const availability = {};
+    let CURRENT_PRICE = null;
+    let untrap = null;
+
+    const schoolSelect = document.getElementById('schoolSelect');
+    const langSelect   = document.getElementById('langSelect');
+    const calendarEl   = document.getElementById('calendar');
+    const calendarLoading = document.getElementById('calendarLoading');
+    const logoImg      = document.getElementById('logoImg');
+
+    const titleApp  = document.getElementById('titleApp');
+    const labelSchool = document.getElementById('labelSchool');
+    const labelLang = document.getElementById('labelLang');
+    const introLine1 = document.getElementById('introLine1');
+    const introHint  = document.getElementById('introHint');
+
+    const startOverlay = document.getElementById('startOverlay');
+    const startTitle = document.getElementById('startTitle');
+    const startLead = document.getElementById('startLead');
+    const startHintBelow = document.getElementById('startHintBelow');
+    const startGrid = startOverlay.querySelector('.start-grid');
+
+    const modalBack    = document.getElementById('modalBackdrop');
+    const bookingModal = document.getElementById('bookingModal');
+    const wiInfoModal  = document.getElementById('wiInfoModal');
+    const wiInfoTitle  = document.getElementById('wiInfoTitle');
+    const wiInfoText   = document.getElementById('wiInfoText');
+    const btnWiOk      = document.getElementById('btnWiOk');
+    const btnWiCloseX  = document.getElementById('btnWiCloseX');
+
+    const modalTitle   = document.getElementById('modalTitle');
+    const form         = document.getElementById('requestForm');
+
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const btnToStep2 = document.getElementById('btnToStep2');
+    const btnBackStep1 = document.getElementById('btnBackStep1');
+    const btnCloseX = document.getElementById('btnCloseX');
+
+    const alertConflict = document.getElementById('alertConflict');
+    const alertShort = document.getElementById('alertShort');
+    const alertLate = document.getElementById('alertLate');
+    const alertOverlap = document.getElementById('alertOverlap');
+    const overlapWarningText = document.getElementById('overlapWarningText');
+
+    const fSchool = document.getElementById('fSchool');
+    const fFrom   = document.getElementById('fFrom');
+    const fTo     = document.getElementById('fTo');
+    const fPersons = document.getElementById('fPersons');
+
+    const fSalutation = document.getElementById('fSalutation');
+    const fFirstName  = document.getElementById('fFirstName');
+    const fLastName   = document.getElementById('fLastName');
+
+    const fEmail    = document.getElementById('fEmail');
+    const fPhoneCountry = document.getElementById('fPhoneCountry');
+    const fPhoneNat = document.getElementById('fPhoneNat');
+
+    const fStreet = document.getElementById('fStreet');
+    const fHouse  = document.getElementById('fHouse');
+    const fZip = document.getElementById('fZip');
+    const fCity = document.getElementById('fCity');
+    const fZipCity= document.getElementById('fZipCity');
+    const fAddressFull = document.getElementById('fAddressFull');
+
+    const fTypeFree = document.getElementById('fTypeFree');
+    
+    const bikesWrapper = document.getElementById('bikesWrapper');
+    const labelBikesQuestion = document.getElementById('labelBikesQuestion');
+    const labelBikesYes = document.getElementById('labelBikesYes');
+    const labelBikesNo = document.getElementById('labelBikesNo');
+    const fBikesYes = document.getElementById('fBikesYes');
+    const fBikesNo = document.getElementById('fBikesNo');
+    const errBikesChoice = document.getElementById('err-bikeschoice');
+    
+    const bikesDetailsWrapper = document.getElementById('bikesDetailsWrapper');
+    const labelBikesDetails = document.getElementById('labelBikesDetails');
+    const errBikesDetails = document.getElementById('err-bikesdetails');
+    const fBikesLauf = document.getElementById('fBikesLauf');
+    const fBikes12 = document.getElementById('fBikes12');
+    const fBikes16 = document.getElementById('fBikes16');
+    const fBikes20 = document.getElementById('fBikes20');
+    const fBikes24 = document.getElementById('fBikes24');
+    const fBikes26 = document.getElementById('fBikes26');
+
+    const fMsg      = document.getElementById('fMsg');
+
+    const labelFormSchool = document.getElementById('labelFormSchool');
+    const labelPersons = document.getElementById('labelPersons');
+    const labelFrom = document.getElementById('labelFrom');
+    const labelTo = document.getElementById('labelTo');
+    const labelType = document.getElementById('labelType');
+    const labelEmail = document.getElementById('labelEmail');
+    const labelPhone = document.getElementById('labelPhone');
+    const labelPhoneCountry = document.getElementById('labelPhoneCountry');
+    const labelAddress = document.getElementById('labelAddress');
+    const labelSalutation = document.getElementById('labelSalutation');
+    const labelFirstName = document.getElementById('labelFirstName');
+    const labelLastName = document.getElementById('labelLastName');
+    const labelMsg = document.getElementById('labelMsg');
+    const labelAccept = document.getElementById('labelAccept');
+    const fAccept = document.getElementById('fAccept');
+
+    const stickyBar = document.getElementById('stickyBar');
+    const stickyPrice = document.getElementById('stickyPrice');
+    const stickyWhen = document.getElementById('stickyWhen');
+    const stickyPersons = document.getElementById('stickyPersons');
+
+    const priceTitle  = document.getElementById('priceTitle');
+    const priceHint   = document.getElementById('priceHint');
+    const priceValue  = document.getElementById('priceValue');
+    const priceToggle = document.getElementById('priceToggle');
+    const priceBreakdown = document.getElementById('priceBreakdown');
+    const bdBaseLabel = document.getElementById('bdBaseLabel');
+    const bdBase      = document.getElementById('bdBase');
+    const bdPersonsLabel = document.getElementById('bdPersonsLabel');
+    const bdPersons   = document.getElementById('bdPersons');
+    const bdTimeLabel = document.getElementById('bdTimeLabel');
+    const bdTime      = document.getElementById('bdTime');
+    const bdExtrasLabel = document.getElementById('bdExtrasLabel');
+    const bdExtras    = document.getElementById('bdExtras');
+    const bdTotalLabel= document.getElementById('bdTotalLabel');
+    const bdTotal     = document.getElementById('bdTotal');
+    const extrasRunning = document.getElementById('extrasRunning');
+
+    const btnSubmit   = document.getElementById('btnSubmit');
+
+    const timeInfoIcon = document.getElementById('timeInfo');
+    const timePopover  = document.getElementById('timeInfoPopover');
+
+    const personsInfoIcon = document.getElementById('personsInfo');
+    const personsPopover  = document.getElementById('personsInfoPopover');
+    const personsInfoWrap = document.getElementById('personsInfoWrap');
+
+    const successMsg  = document.getElementById('successMsg');
+    const successText = document.getElementById('successText');
+    const successOverlay = document.getElementById('successOverlay');
+    const successTitle = document.getElementById('successTitle');
+    const successLead  = document.getElementById('successLead');
+    const successSummary = document.getElementById('successSummary');
+    const btnBackToCalendar = document.getElementById('btnBackToCalendar');
+    const mobileAdd = document.getElementById('mobileAdd');
+
+    const addrHintHelp = document.getElementById('addrHintHelp');
+
+    const bdDepositRow = document.getElementById('bdDepositRow');
+    const bdDeposit    = document.getElementById('bdDeposit');
+
+    const bdGrandTotalRow = document.getElementById('bdGrandTotalRow');
+    const bdGrandTotalLabel = document.getElementById('bdGrandTotalLabel');
+    const bdGrandTotal = document.getElementById('bdGrandTotal');
+
+    const DEFAULT_TAP_MINUTES = 120;
+    const MAX_EVENT_HOURS   = 24;
+    const FALLBACK_MINUTES  = 120;
+
+    /* ===== I18N apply ===== */
+    function applyI18n(){
+      const L = I18N[langSelect.value] || I18N.de;
+      titleApp.textContent = L.appTitle;
+      labelSchool.textContent = L.labelSchool;
+      labelLang.textContent = L.labelLang;
+      introLine1.textContent = L.intro1;
+      introHint.textContent  = L.introHint;
+      document.getElementById('calendarLoading').firstChild.nodeValue = L.loadingCalendar;
+
+      modalTitle.textContent = L.modalTitle;
+      labelFormSchool.textContent = L.formSchool;
+      labelPersons.textContent = L.persons;
+      labelFrom.textContent = L.from;
+      labelTo.textContent = L.to;
+      labelType.textContent = L.type;
+      
+      if(labelBikesQuestion) labelBikesQuestion.textContent = L.bikesQuestion;
+      if(labelBikesYes) labelBikesYes.textContent = L.bikesYes;
+      if(labelBikesNo) labelBikesNo.textContent = L.bikesNo;
+      if(labelBikesDetails) labelBikesDetails.textContent = L.bikesDetails;
+      if(errBikesChoice) errBikesChoice.textContent = L.errBikesChoice;
+      if(errBikesDetails) errBikesDetails.textContent = L.errBikesDetails;
+
+      labelEmail.textContent = L.email;
+      labelPhone.textContent = (langSelect.value==='en'?'Phone number *':'Telefon *');
+      labelPhoneCountry.textContent = L.phoneCountry;
+      labelAddress.textContent = L.address;
+      labelSalutation.textContent = L.salutation;
+      labelFirstName.textContent = L.firstName;
+      labelLastName.textContent = L.lastName;
+      labelMsg.textContent = L.message;
+      labelAccept.textContent = L.accept;
+
+      overlapWarningText.textContent = L.overlapWarning;
+
+      priceTitle.textContent = L.priceTitle;
+      priceHint.textContent = L.priceHint;
+      document.getElementById('termsSummary').textContent = L.termsSummary;
+
+      const termsList = document.getElementById('termsList');
+      termsList.innerHTML = "";
+      const termsToRender = getTermsForSchool(langSelect.value, currentKey);
+      termsToRender.forEach(t => { const li = document.createElement('li'); li.textContent = t; termsList.appendChild(li); });
+
+      document.getElementById('bdTimeLabel').textContent = L.bdTime;
+      document.getElementById('bdExtrasLabel').textContent = L.bdExtras;
+      document.getElementById('bdTotalLabel').textContent = L.bdTotal;
+      
+      bdGrandTotalLabel.textContent = (langSelect.value==='en')
+        ? 'Total incl. deposit'
+        : 'Summe inkl. Kaution';
+
+      btnSubmit.textContent = L.btnSend;
+
+      fPersons.placeholder = L.phPersons;
+      fTypeFree.placeholder = L.phType;
+
+      successTitle.textContent = L.successTitle;
+      btnBackToCalendar.textContent = L.successBack;
+
+      startTitle.textContent = L.startTitle;
+      if (startLead) startLead.textContent = L.startLead;
+      startHintBelow.textContent = L.startHint;
+
+      // WI-specific texts
+      wiInfoTitle.textContent = L.wiInfoTitle;
+      wiInfoText.innerHTML = L.wiInfoText;
+      btnWiOk.textContent = L.wiInfoOk;
+
+      if(calendar) calendar.setOption('locale', langSelect.value === 'en' ? 'en-gb' : 'de');
+      if(calendar) updateClosedBlocks();
+
+      renderExtrasForSchool(currentKey || 'WE');
+      updatePricePreview();
+      timePopover.textContent = L.bdTimeInfo;
+      if (personsPopover) personsPopover.textContent = L.personsInfo;
+      renderStartCards();
+      renderSchoolSelectOptions();
+    }
+
+    /* ===== Fetch helpers / JSON ===== */
+    async function fetchJson(url){
+      const r = await fetch(url+'?v='+Date.now(), {cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const txt = await r.text();
+      return JSON.parse(txt.replace(/^\uFEFF/, ''));
+    }
+
+    /* ===== Events normalize ===== */
+    function normalizeEvents(raw){
+      if(!Array.isArray(raw)) return [];
+      const MS_PER_MIN = 60000, MS_PER_HOUR = 3600000, MS_24H = 24*MS_PER_HOUR;
+      const isValidDate = (d)=> d instanceof Date && !isNaN(d.getTime());
+
+      return raw.map(ev=>{
+        const s = new Date(ev.start);
+        let e = ev.end ? new Date(ev.end) : null;
+
+        if(!isValidDate(s)) return { __drop:true };
+        if(!isValidDate(e)) e = new Date(s.getTime() + FALLBACK_MINUTES*MS_PER_MIN);
+        if(e <= s){
+          e = new Date(e.getTime() + MS_24H);
+          if(e <= s) e = new Date(s.getTime() + Math.max(30, FALLBACK_MINUTES)*MS_PER_MIN);
+        }
+        if((e - s) > MS_24H) e = new Date(s.getTime() + MS_24H);
+
+        const isFrauen = String(ev.frauenprojekt || '').toLowerCase() === 'true';
+        // Check of dit een speciaal 'FREI' blok is für die Wiener Straße
+        const isFrei = String(ev.isFrei || '').toLowerCase() === 'true';
+
+        let classNames = Array.isArray(ev.classNames) ? [...ev.classNames] : [];
+        let title = ev.title || 'Belegt';
+        let url = ev.url;
+
+        if (isFrei) {
+          classNames.push('frei');
+          title = (langSelect.value === 'en') ? "Probably free - Tap to call" : "Voraussichtlich frei - Bitte anrufen";
+        } else {
+          classNames.push('busy');
+          if (isFrauen) {
+            classNames.push('frauenprojekt');
+            title = "Fahrradfahren lernen/üben für Frauen* und Kinder. Klicke für mehr informationen.";
+            url = "https://www.kidbike.de/Frauen";
+          }
+        }
+
+        return {
+          ...ev,
+          start: s,
+          end: e,
+          title,
+          classNames,
+          url
+        };
+      }).filter(ev => !ev.__drop && ev.start instanceof Date && !isNaN(ev.start) && ev.end instanceof Date && !isNaN(ev.end));
+    }
+
+
+    /* ===== Discover schools (online/offline) ===== */
+    async function discoverSchools(){
+      const keys = Object.keys(SCHOOLS);
+      for(const key of keys){
+        try{
+          const data = await fetchJson(SCHOOLS[key].file);
+         availability[key] = { ok: Array.isArray(data) };
+        } catch(_e){
+         availability[key] = { ok: false };
+        }
+       if (FORCE_OFFLINE[key]) availability[key].ok = false;
+      }
+      renderSchoolSelectOptions();
+      renderStartCards();
+      startOverlay.style.display = 'flex';
+      if (startMapObj) setTimeout(() => startMapObj.invalidateSize(), 150);
+    }
+
+
+    function renderSchoolSelectOptions(){
+      const L = I18N[langSelect.value] || I18N.de;
+      schoolSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = ''; placeholder.disabled = true; placeholder.selected = !currentKey;
+      placeholder.textContent = L.loadingSchools.replace('Lade', langSelect.value==='en'?'Select':'Wählen');
+      schoolSelect.appendChild(placeholder);
+
+      for(const key of Object.keys(SCHOOLS)){
+        const opt = document.createElement('option');
+        opt.value = key;
+        const ok = availability[key]?.ok;
+        const name = SCHOOLS[key].name;
+        
+        if (!ok) {
+          opt.textContent = `${name} — ${L.notOnline}`;
+          opt.className = 'disabled';
+          opt.disabled = true;
+        } else if (key === 'WI') {
+          opt.textContent = `${name} — ${L.phoneBookable}`;
+          opt.className = '';
+          opt.disabled = false;
+        } else {
+          opt.textContent = `${name}`;
+          opt.className = '';
+          opt.disabled = false;
+        }
+        
+        schoolSelect.appendChild(opt);
+      }
+      if(currentKey) schoolSelect.value = currentKey;
+    }
+
+    function renderStartCards(){
+      const T = I18N[langSelect.value] || I18N.de;
+      startGrid.innerHTML = '';
+      
+      if (!startMapObj && window.L) {
+        startMapObj = window.L.map('startMap').setView([52.505, 13.42], 12);
+        window.L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; OSM contributors'
+        }).addTo(startMapObj);
+      }
+
+      for(const key of Object.keys(SCHOOLS)){
+        const { name, address, coords } = SCHOOLS[key];
+        const ok = availability[key]?.ok;
+        
+        let statusText = '';
+        let statusClass = 'status';
+        
+        if (!ok) {
+          statusText = T.notOnline;
+        } else if (key === 'WI') {
+          statusText = T.phoneBookable;
+          statusClass = 'status phone';
+        } else {
+          statusText = T.onlineBookable;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'school-card' + (ok ? '' : ' disabled');
+        card.id = 'scard_' + key;
+        card.innerHTML = `
+          <h3 style="margin:0;font-size:16px;">${name}</h3>
+          <p style="margin:0;color:#374151;font-size:13px;">${address}</p>
+          <span class="${statusClass}">${statusText}</span>
+          <div class="choose" style="margin-top:auto">
+            <button class="btn ${ok ? 'primary' : ''}" ${ ok ? '' : 'disabled' }>${T.choose}</button>
+          </div>`;
+          
+        card.addEventListener('click', ()=>{
+          if(!ok) return;
+          currentKey = key;
+          startOverlay.style.display = 'none';
+          renderSchoolSelectOptions();
+          schoolSelect.value = key;
+          loadCalendar(key);
+        });
+
+        const redIcon = window.L ? new window.L.Icon({iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]}) : null;
+        const defaultIcon = window.L ? new window.L.Icon.Default() : null;
+
+        card.addEventListener('mouseenter', () => { if (mapMarkers[key] && redIcon) mapMarkers[key].setIcon(redIcon); });
+        card.addEventListener('mouseleave', () => { if (mapMarkers[key] && defaultIcon) mapMarkers[key].setIcon(defaultIcon); });
+
+        startGrid.appendChild(card);
+
+        if (startMapObj && coords && !mapMarkers[key]) {
+           const m = window.L.marker(coords).addTo(startMapObj).bindPopup(`<b>${name}</b><br>${address}`);
+           mapMarkers[key] = m;
+           m.on('mouseover', () => { card.classList.add('highlighted'); card.scrollIntoView({behavior: 'smooth', block: 'nearest'}); });
+           m.on('mouseout', () => { card.classList.remove('highlighted'); });
+           m.on('click', () => { 
+             if(ok) {
+                currentKey = key; startOverlay.style.display = 'none'; renderSchoolSelectOptions(); schoolSelect.value = key; loadCalendar(key);
+             } else {
+                card.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+                card.classList.add('highlighted'); setTimeout(()=>card.classList.remove('highlighted'), 1000);
+             }
+           });
+        }
+      }
+    }
+
+    /* ===== Rules / validation helpers ===== */
+    function minStartDate(){ const d=new Date(); d.setDate(d.getDate()+7); d.setHours(0,0,0,0); return d; }
+    function overlaps(aStart,aEnd,bStart,bEnd){ return (aStart < bEnd) && (aEnd > bStart); }
+
+    /* Sluitingsregel: einde mag niet ná het sluitingsuur liggen, start niet erna/erop */
+    function violatesClosing(start, end){
+      const ch = closingHour();
+      if (ch === null || !start || !end) return false;
+      const limitMin = ch * 60;
+      const sameDay = start.toDateString() === end.toDateString();
+      if (!sameDay) return true;                                        // over middernacht = altijd te laat
+      if ((start.getHours()*60 + start.getMinutes()) >= limitMin) return true;
+      if ((end.getHours()*60   + end.getMinutes())   >  limitMin) return true;
+      // nachtelijke uren (vóór 6:00) horen bij het gesloten venster
+      if ((start.getHours()*60 + start.getMinutes()) < 6*60) return true;
+      return false;
+    }
+
+    /* Kapt een gekozen periode af op het sluitingsuur (alleen waar van toepassing) */
+    function clampToClosing(start, end){
+      const ch = closingHour();
+      if (ch === null || !start || !end) return { start, end, clamped:false };
+      let s = new Date(start), e = new Date(end), clamped = false;
+      const limit = new Date(s); limit.setHours(ch, 0, 0, 0);
+      if (e > limit){ e = new Date(limit); clamped = true; }
+      if ((e - s) < 30*60000){ s = new Date(e.getTime() - DEFAULT_TAP_MINUTES*60000); clamped = true; }
+      return { start:s, end:e, clamped };
+    }
+
+    /* Gearceerd "Geschlossen"-blok vanaf het sluitingsuur tekenen */
+    function updateClosedBlocks(){
+      if(!calendar) return;
+      calendar.getEvents()
+        .filter(ev => (ev.classNames || []).includes('closed-late'))
+        .forEach(ev => ev.remove());
+
+      const ch = closingHour();
+      if (ch === null) return;
+
+      const L = I18N[langSelect.value] || I18N.de;
+      const view = calendar.view;
+      if(!view || !view.activeStart || !view.activeEnd) return;
+
+      const cur = new Date(view.activeStart); cur.setHours(0,0,0,0);
+      const stop = new Date(view.activeEnd);
+      let guard = 0;
+      while(cur < stop && guard++ < 60){
+        const s = new Date(cur); s.setHours(ch,0,0,0);
+        // loopt door tot de onderkant van het rooster (bij 24 = middernacht, zoals voorheen)
+        const e = new Date(cur); e.setHours(currentGridEndHour,0,0,0);
+        calendar.addEvent({
+          start: s,
+          end: e,
+          display: 'background',
+          overlap: true,
+          classNames: ['closed-late'],
+          title: L.closedLabel
+        });
+        cur.setDate(cur.getDate()+1);
+      }
+    }
+
+    function formatAddress(){
+      const street=(fStreet.value||'').trim();
+      const house=(fHouse.value||'').trim();
+      const zip=(fZip.value||'').trim();
+      const city=(fCity.value||'').trim();
+      const full = [street, house].filter(Boolean).join(' ') + ((zip||city)?(', '+[zip,city].filter(Boolean).join(' ')):'');
+      fAddressFull.value = full.trim();
+      fZipCity.value = [zip, city].filter(Boolean).join(' ').trim();
+      return fAddressFull.value;
+    }
+
+    function highlight(el, on){
+      const shouldShow = on && (wasSubmitted || el.dataset.touched === '1');
+      el.classList.toggle('error', !!shouldShow);
+      
+      if(shouldShow) {
+        el.setAttribute('aria-invalid', 'true');
+      } else {
+        el.removeAttribute('aria-invalid');
+      }
+      
+      const msg = el.parentElement.querySelector('.error-msg');
+      if (msg) msg.style.display = shouldShow ? 'block' : 'none';
+    }
+
+    // HULPFUNCTIE: Controleert over de geselecteerde tijd overlapt
+    function getOverlapState(start, end) {
+      if (!start || !end) return false;
+      for (const ev of busyEvents) {
+        if (ev.isFrei) continue;
+        const bS = new Date(ev.start), bE = new Date(ev.end || ev.start);
+        if (overlaps(start, end, bS, bE)) return true;
+      }
+      for (const ev of currentHolds) {
+        const bS = new Date(ev.start), bE = new Date(ev.end);
+        if (overlaps(start, end, bS, bE)) return true;
+      }
+      return false;
+    }
+
+    function validateTimes(){
+      const L = I18N[langSelect.value] || I18N.de;
+      const start = parseLocalDT(fFrom.value);
+      const end   = parseLocalDT(fTo.value);
+
+      let isInvalidTime = false;
+      if(!(start && end)) isInvalidTime = true;
+      if(!isInvalidTime && end <= start) isInvalidTime = true;
+      if(!isInvalidTime && (end - start) < 30*60000) isInvalidTime = true;
+
+      const isOverlapping = !isInvalidTime && getOverlapState(start, end);
+      const isLate = !isInvalidTime && violatesClosing(start, end);
+
+      const showConflict = isInvalidTime && (wasSubmitted || (fFrom.dataset.touched==='1' && fTo.dataset.touched==='1'));
+      alertConflict.style.display = showConflict ? 'block':'none';
+      alertConflict.textContent = L.conflict;
+
+      // Sluitingstijd: harde blokkade (rood) of informatieve melding na automatisch afkappen (geel)
+      if (isLate) {
+        alertLate.className = 'alert warn';
+        alertLate.textContent = L.lateBlocked;
+        alertLate.style.display = 'block';
+      } else if (lateClampNotice && hasClosingLimit()) {
+        alertLate.className = 'alert note';
+        alertLate.textContent = L.lateClamped;
+        alertLate.style.display = 'block';
+      } else {
+        alertLate.style.display = 'none';
+      }
+
+      // Toon de waarschuwing bij overlap
+      if (isOverlapping) {
+        alertOverlap.style.display = 'block';
+      } else {
+        alertOverlap.style.display = 'none';
+      }
+
+      if(start && start < minStartDate()) { alertShort.style.display='block'; alertShort.innerHTML = L.shortTermWarning; }
+      else { alertShort.style.display='none'; }
+
+      const phoneOk = (fPhoneNat.value||'').replace(/[^\d]/g,'').length >= 6;
+      const addrOk  = !!formatAddress();
+
+      highlight(fPersons, !fPersons.value);
+      highlight(fEmail, !fEmail.validity.valid);
+      highlight(fPhoneNat, !phoneOk);
+      highlight(fStreet, !(fStreet.value||'').trim());
+      highlight(fHouse,  !(fHouse.value||'').trim());
+      highlight(fZip,    !(fZip.value||'').trim());
+      highlight(fCity,   !(fCity.value||'').trim());
+
+      let bikesOk = true;
+      if (currentKey === 'WE') {
+        const isBikesTouched = fBikesYes.dataset.touched === '1' || fBikesNo.dataset.touched === '1';
+        if (!fBikesYes.checked && !fBikesNo.checked) {
+          bikesOk = false;
+          errBikesChoice.style.display = (wasSubmitted || isBikesTouched) ? 'block' : 'none';
+        } else {
+          errBikesChoice.style.display = 'none';
+          if (fBikesYes.checked) {
+            const totalBikes = (parseInt(fBikesLauf.value)||0) + (parseInt(fBikes12.value)||0) + (parseInt(fBikes16.value)||0) + (parseInt(fBikes20.value)||0) + (parseInt(fBikes24.value)||0) + (parseInt(fBikes26.value)||0);
+            if (totalBikes < 1) bikesOk = false;
+            
+            const bTouch = (fBikesLauf.dataset.touched==='1' || fBikes12.dataset.touched==='1' || fBikes16.dataset.touched==='1' || fBikes20.dataset.touched==='1' || fBikes24.dataset.touched==='1' || fBikes26.dataset.touched==='1');
+            errBikesDetails.style.display = (bikesOk === false && (wasSubmitted || bTouch)) ? 'block' : 'none';
+          } else {
+            errBikesDetails.style.display = 'none';
+          }
+        }
+      }
+
+      const requireAccept = (step2.style.display !== 'none');
+      const timeOk = !isInvalidTime && !isOverlapping && !isLate;
+      const requiredOk = fSchool.value && fPersons.value && start && end && phoneOk && addrOk && bikesOk && fEmail.validity.valid && (!requireAccept || fAccept.checked);
+      
+      btnSubmit.disabled = !(timeOk && requiredOk);
+      updatePricePreview(); 
+      updateSticky();
+      return timeOk && requiredOk;
+    }
+
+    // Laat de blokkade in de kalender los, zodat ze het blokje wél kunnen selecteren (en de warning zien)
+    function selectAllowFn(selectInfo){
+      const selStart = selectInfo.start, selEnd = selectInfo.end;
+      if((selEnd - selStart)/60000 < 30) return false;
+      return true;
+    }
+
+    function desiredView(){ const w = calendarEl.clientWidth || window.innerWidth; return (w < 700) ? 'timeGridDay' : 'timeGridWeek'; }
+    function applyResponsiveView(){ if(!calendar) return; const want = desiredView(); if(calendar.view && calendar.view.type !== want) calendar.changeView(want); }
+
+    /* ===== Wizard & sticky bar ===== */
+    function goStep(n){
+      if(n===1){ step1.style.display='block'; step2.style.display='none'; }
+      else { step1.style.display='none'; step2.style.display='block'; }
+
+      const agreeWrap = document.getElementById('fAccept').closest('.checkline');
+      if(agreeWrap){ agreeWrap.style.display = (n===2 ? 'inline-flex' : 'none'); }
+      btnSubmit.style.display = (n===2 ? 'inline-flex' : 'none');
+
+      sendHeightThrottled();
+    }
+
+    function updateSticky(){
+      let stickyText = '–';
+      if (CURRENT_PRICE && CURRENT_PRICE.total != null) {
+        if (CURRENT_PRICE.caution) {
+          stickyText = `${euro(CURRENT_PRICE.total)} + ${euro(CURRENT_PRICE.caution)} Kaution`;
+        } else {
+          stickyText = euro(CURRENT_PRICE.total);
+        }
+      } else if (priceValue.textContent) {
+        stickyText = priceValue.textContent;
+      }
+      stickyPrice.textContent = stickyText;
+
+      const s = parseLocalDT(fFrom.value), e = parseLocalDT(fTo.value);
+      stickyWhen.textContent = (s&&e)? `${formatDT(s, langSelect.value)} – ${formatDT(e, langSelect.value)}` : '–';
+      stickyPersons.textContent = fPersons.value ? `${fPersons.value} Pers.` : '';
+    }
+
+    btnToStep2.addEventListener('click', ()=>{ 
+      const start = parseLocalDT(fFrom.value);
+      const end   = parseLocalDT(fTo.value);
+      
+      let isInvalidTime = false;
+      if(!(start && end)) isInvalidTime = true;
+      if(!isInvalidTime && end <= start) isInvalidTime = true;
+      if(!isInvalidTime && (end - start) < 30*60000) isInvalidTime = true;
+      
+      const isOverlapping = !isInvalidTime && getOverlapState(start, end);
+      const isLate = !isInvalidTime && violatesClosing(start, end);
+      
+      const showConflict = isInvalidTime && (fFrom.dataset.touched==='1' && fTo.dataset.touched==='1');
+      alertConflict.style.display = showConflict ? 'block':'none';
+      alertConflict.textContent = (I18N[langSelect.value]||I18N.de).conflict;
+      
+      if (isOverlapping) {
+         alertOverlap.style.display = 'block';
+      }
+
+      if (isLate) {
+         alertLate.className = 'alert warn';
+         alertLate.textContent = (I18N[langSelect.value]||I18N.de).lateBlocked;
+         alertLate.style.display = 'block';
+      }
+      
+      if(start && start < minStartDate()) { 
+        alertShort.style.display='block'; 
+        alertShort.innerHTML = (I18N[langSelect.value]||I18N.de).shortTermWarning; 
+      } else { 
+        alertShort.style.display='none'; 
+      }
+      
+      highlight(fPersons, !fPersons.value);
+      
+      const timeOk = !isInvalidTime && !isOverlapping && !isLate;
+
+      if(timeOk && fPersons.value) {
+        goStep(2);
+      } else {
+        fFrom.dataset.touched = '1';
+        fTo.dataset.touched = '1';
+        fPersons.dataset.touched = '1';
+        validateTimes();
+      }
+    });
+
+    btnBackStep1.addEventListener('click', ()=> goStep(1));
+    btnCloseX.addEventListener('click', closeModal);
+    btnWiCloseX.addEventListener('click', closeModal);
+    btnWiOk.addEventListener('click', closeModal);
+
+    priceToggle.addEventListener('click', ()=>{
+      priceBreakdown.style.display = priceBreakdown.style.display==='none' ? 'block':'none';
+      sendHeightThrottled();
+    });
+
+    /* ===== Focus trap ===== */
+    function trapFocus(container){
+      const FOCUS = 'a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])';
+      const nodes=()=>Array.from(container.querySelectorAll(FOCUS)).filter(el=>!el.disabled && el.offsetParent!==null);
+      function onKey(e){
+        if(e.key!=='Tab') return;
+        const a = nodes(); if(!a.length) return;
+        const first=a[0], last=a[a.length-1];
+        if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+        else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+      }
+      container.addEventListener('keydown', onKey);
+      return ()=>container.removeEventListener('keydown', onKey);
+    }
+
+    // Aparte functie für WI popup
+    function openWiInfo(){
+      bookingModal.style.display = 'none';
+      wiInfoModal.style.display = 'block';
+      modalBack.style.display = 'flex';
+      if(untrap) untrap(); 
+      untrap = trapFocus(wiInfoModal);
+    }
+
+    function openModal(prefill){
+      // Als de Wiener Straße geselecteerd is, gooi een custom popup open
+      if (currentKey === 'WI') {
+        openWiInfo();
+        return;
+      }
+
+      bookingModal.style.display = 'block';
+      wiInfoModal.style.display = 'none';
+
+      // Sluitingstijd toepassen op de meegegeven periode
+      const clamp = clampToClosing(prefill.start, prefill.end);
+      lateClampNotice = !!clamp.clamped;
+
+      fSchool.value = prefill.school;
+      fFrom.value = toInputLocal(clamp.start);
+      fTo.value   = toInputLocal(clamp.end);
+      alertConflict.style.display = 'none';
+      alertShort.style.display = 'none';
+      alertOverlap.style.display = 'none';
+      alertLate.style.display = 'none';
+      fAccept.checked = false;
+      btnSubmit.disabled = true;
+
+      if (bikesWrapper) {
+        bikesWrapper.style.display = (currentKey === 'WE') ? 'block' : 'none';
+      }
+      if (personsInfoWrap) personsInfoWrap.style.display = (currentKey === 'WE') ? 'inline-flex' : 'none';
+      fBikesYes.dataset.touched = '0';
+      fBikesNo.dataset.touched = '0';
+      fBikesYes.checked = false;
+      fBikesNo.checked = false;
+      if(fBikes12) {
+          fBikesLauf.value = 0; fBikes12.value = 0; fBikes16.value = 0; fBikes20.value = 0; fBikes24.value = 0; fBikes26.value = 0;
+          fBikesLauf.dataset.touched = '0'; fBikes12.dataset.touched = '0'; fBikes16.dataset.touched = '0'; fBikes20.dataset.touched = '0'; fBikes24.dataset.touched = '0'; fBikes26.dataset.touched = '0';
+      }
+      bikesDetailsWrapper.style.display = 'none';
+      errBikesChoice.style.display = 'none';
+      errBikesDetails.style.display = 'none';
+
+      formatAddress();
+      renderExtrasForSchool(currentKey || 'WE');
+      updatePricePreview();
+      goStep(1);
+      modalBack.style.display = 'flex';
+      validateTimes();
+      if(untrap) untrap(); 
+      untrap = trapFocus(bookingModal);
+    }
+
+    function closeModal(){
+      modalBack.style.display = 'none';
+      form.reset();
+      fSchool.value = '';
+      lateClampNotice = false;
+      alertConflict.style.display = 'none';
+      alertShort.style.display = 'none';
+      alertOverlap.style.display = 'none';
+      alertLate.style.display = 'none';
+      btnSubmit.disabled = true;
+      priceValue.textContent = '–';
+      priceBreakdown.style.display = 'none';
+      hidePopover();
+      hidePersonsPopover();
+      if(untrap) untrap();
+    }
+
+    /* ===== Utils ===== */
+    function debounce(fn, ms=300){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
+    async function nominatim(q){
+      if(!q || q.length < 3) return [];
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&countrycodes=de&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, {headers:{'Accept':'application/json'}});
+      if(!res.ok) return [];
+      return res.json();
+    }
+
+    const updateStreetHints = debounce(async ()=>{
+      const base=(fStreet.value||'').trim();
+      const city=(fCity.value||'').trim();
+      const q = (base+' '+city).trim();
+      if(q.replace(/\s+/g,' ').length < 3) return;
+      
+      const data = await nominatim(q);
+      const hints = new Set();
+      data.forEach(r=>{
+        const a = r.address||{};
+        const street = a.road || a.pedestrian || a.footway || a.path || '';
+        if(street) hints.add(street);
+      });
+      addrHintHelp.style.display = hints.size ? 'block' : 'none';
+      addrHintHelp.textContent = hints.size ? 'Tipp: Vorschläge nutzen' : '';
+    }, 450);
+
+    const updateCityHints = debounce(async ()=>{
+      const q=(fCity.value||'').trim();
+      if(q.length<3) return;
+      await nominatim(q);
+    }, 450);
+
+    fStreet.addEventListener('input', updateStreetHints);
+    fCity.addEventListener('input', updateCityHints);
+
+    [fZip,fCity].forEach(el=>{ 
+      el.addEventListener('input', ()=>{ formatAddress(); validateTimes(); }); 
+      el.addEventListener('blur', ()=>{ el.dataset.touched='1'; validateTimes(); }); 
+    });
+
+    [fFrom,fTo,fPersons,fEmail,fPhoneNat,fAccept].forEach(el=>{
+      el.addEventListener('change', validateTimes);
+      el.addEventListener('input', validateTimes);
+    });
+
+    // Zodra de gebruiker zelf aan de tijden draait, vervalt de "automatisch aangepast"-melding
+    [fFrom,fTo].forEach(el=>{
+      el.addEventListener('input', ()=>{ lateClampNotice = false; });
+    });
+
+    [fBikesYes, fBikesNo].forEach(el => {
+      el.addEventListener('change', () => {
+        el.dataset.touched = '1';
+        bikesDetailsWrapper.style.display = fBikesYes.checked ? 'block' : 'none';
+        validateTimes();
+      });
+    });
+
+    // Stepper logic - AANGEPAST VOOR MAX
+    document.querySelectorAll('.stepper button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const targetId = e.currentTarget.dataset.target;
+        const input = document.getElementById(targetId);
+        if(!input) return;
+        let val = parseInt(input.value) || 0;
+        const maxVal = parseInt(input.getAttribute('max')) || Infinity;
+        if (e.currentTarget.classList.contains('btn-minus') && val > 0) val--;
+        if (e.currentTarget.classList.contains('btn-plus') && val < maxVal) val++;
+        input.value = val;
+        input.dataset.touched = '1';
+        validateTimes();
+      });
+    });
+
+    [fBikesLauf, fBikes12, fBikes16, fBikes20, fBikes24, fBikes26].forEach(el => {
+      if(!el) return;
+      el.addEventListener('input', validateTimes);
+      el.addEventListener('blur', () => { el.dataset.touched = '1'; validateTimes(); });
+    });
+
+    [fFrom,fTo,fPersons,fEmail,fPhoneNat,fStreet,fHouse,fZip,fCity].forEach(el=>{
+      el.addEventListener('blur', ()=>{ el.dataset.touched = '1'; validateTimes(); });
+    });
+
+    fPhoneNat.addEventListener('input', ()=>{
+      const cur = fPhoneNat.selectionStart;
+      fPhoneNat.value = (fPhoneNat.value || '').replace(/[^\d]/g,'');
+      fPhoneNat.setSelectionRange(cur, cur);
+    });
+
+    function formatDT(dt, lang){
+      const d = (dt instanceof Date) ? dt : new Date(dt);
+      return d.toLocaleString(lang === 'en' ? 'en-GB' : 'de-DE', {year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+    }
+
+    function toInputLocal(date){
+      const d = (date instanceof Date) ? date : new Date(date);
+      const pad = n => String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function parseLocalDT(v){
+      if(!v) return null;
+      const [date, time] = v.split('T'); if(!date || !time) return null;
+      const [y,m,d] = date.split('-').map(Number);
+      const [hh,mm] = time.split(':').map(Number);
+      return new Date(y, (m-1), d, hh, mm, 0, 0);
+    }
+
+    function euro(n){ return new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR', maximumFractionDigits:2}).format(n); }
+    function esc(s){ return String(s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+    /* ===== Calendar loading ===== */
+    schoolSelect.addEventListener('change', (e)=> {
+      const key = e.target.value;
+      if(!availability[key]?.ok) return;
+      currentKey = key;
+      loadCalendar(key);
+    });
+
+    langSelect.addEventListener('change', applyI18n);
+
+    mobileAdd.addEventListener('click', ()=>{
+      if (currentKey === 'WI') {
+        openWiInfo();
+        return;
+      }
+      const start = new Date(); start.setDate(start.getDate()+7); start.setHours(10,0,0,0);
+      const end = new Date(start.getTime() + DEFAULT_TAP_MINUTES*60000);
+      openModal({ school: SCHOOLS[currentKey]?.name || '', start, end });
+    });
+
+    async function loadCalendar(key){
+      if(!availability[key]?.ok) return;
+      currentKey = key;
+      calendarLoading.style.display = 'block';
+      if(calendar) calendar.destroy();
+
+      // CSS Klasse toevoegen als het WI is (zodat de kalender gearceerd is)
+      if (currentKey === 'WI') {
+        calendarEl.classList.add('is-wi-mode');
+      } else {
+        calendarEl.classList.remove('is-wi-mode');
+      }
+
+      const raw = await fetchJson(SCHOOLS[key].file);
+      busyEvents = normalizeEvents(raw);
+
+      let holdEvents = [];
+      try {
+        const r = await fetch(`${APPS_SCRIPT_URL}?type=holds&school=${encodeURIComponent(key)}&v=${Date.now()}`);
+        if (r.ok) {
+          const arr = await r.json();
+          if (Array.isArray(arr)) {
+            currentHolds = arr; // NIEUW
+            holdEvents = arr.map(h => ({
+              title: (langSelect.value==='en'
+                ? 'Tentative — awaiting confirmation'
+                : 'Vorläufig reserviert — Bestätigung ausstehend'),
+              start: new Date(h.start),
+              end:   new Date(h.end),
+              editable: false,
+              overlap: true,
+              classNames: ['tentative']
+            }));
+          }
+        }
+      } catch(_) {}
+
+      currentGridEndHour = computeGridEndHour(key, busyEvents.concat(holdEvents));
+
+      calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: (calendarEl.clientWidth || window.innerWidth) < 700 ? 'timeGridDay' : 'timeGridWeek',
+        firstDay: 1,
+        locale: langSelect.value === 'en' ? 'en-gb' : 'de',
+        timeZone: 'local',
+        slotMinTime: '12:00:00',
+        // Weinstraße: raster tot 24:00 zodat het "Geschlossen"-blok zichtbaar is;
+        // groeit automatisch mee als er evenementen tot ná middernacht doorlopen
+        slotMaxTime: String(currentGridEndHour).padStart(2,'0') + ':00:00',
+        height: 'auto',
+        expandRows: true,
+        allDaySlot: false,
+        nowIndicator: false,
+        selectMirror: true,
+        longPressDelay: 120,
+        unselectAuto: true,
+        selectOverlap: true,
+  
+        selectable: !isTouchDevice(),
+        selectMinDistance: 8,
+        longPressDelay: 300,
+        selectLongPressDelay: 300,
+
+        selectAllow: selectAllowFn,
+        events: busyEvents,
+        windowResize: () => applyResponsiveView(),
+        datesSet: () => updateClosedBlocks(),
+
+        eventClick: (info) => {
+           const ev = info.event;
+           
+           if (currentKey === 'WI') {
+             info.jsEvent.preventDefault();
+             openWiInfo();
+             return;
+           }
+
+           if ((ev.classNames || []).includes('frauenprojekt') && ev.url) {
+             info.jsEvent.preventDefault();            
+             window.open(ev.url, '_blank', 'noopener');
+           }
+        },
+
+        select: (info)=>{
+           if (currentKey === 'WI') {
+             calendar.unselect();
+             openWiInfo();
+             return;
+           }
+           openModal({ school: SCHOOLS[currentKey].name, start: info.start, end: info.end });
+           calendar.unselect();
+        },
+        dateClick: (arg)=>{
+           if (currentKey === 'WI') {
+             openWiInfo();
+             return;
+           }
+           if(arg.allDay) return;
+           const start = arg.date;
+           const end = new Date(start.getTime() + DEFAULT_TAP_MINUTES*60000);
+           openModal({ school: SCHOOLS[currentKey].name, start, end });
+        }
+      });
+
+      calendar.render();
+
+      holdEvents.forEach(ev => calendar.addEvent(ev));
+      updateClosedBlocks();
+      mobileAdd.style.display = isTouchDevice() ? 'block' : 'none';
+      applyResponsiveView();
+      calendarLoading.style.display = 'none';
+      calendarEl.classList.add('loaded');
+      fSchool.value = SCHOOLS[currentKey].name;
+      renderExtrasForSchool(key);
+
+      (function refreshTerms(){
+        const termsList = document.getElementById('termsList');
+        if (!termsList) return;
+        const L = I18N[langSelect.value] || I18N.de;
+        document.getElementById('termsSummary').textContent = L.termsSummary;
+        termsList.innerHTML = "";
+        getTermsForSchool(langSelect.value, currentKey).forEach(t => {
+          const li = document.createElement('li'); li.textContent = t; termsList.appendChild(li);
+        });
+      })();
+
+      updatePricePreview();
+    }
+    
+    /* ===== Price calculation ===== */
+    function updatePricePreview(){
+      const L = I18N[langSelect.value] || I18N.de;
+      const start   = parseLocalDT(fFrom.value);
+      const end     = parseLocalDT(fTo.value);
+      const persons = Number(fPersons.value || 0);
+      CURRENT_PRICE = null;
+
+      const showPriceOnReq = ()=> {
+        const depo = (typeof cfg.cautionFn === 'function') ? cfg.cautionFn(persons, start, end) : null;
+        priceValue.textContent = depo
+          ? `${L.priceOnReq} + ${euro(depo)} Kaution`
+          : L.priceOnReq;
+        bdBaseLabel.textContent = (langSelect.value==='en' ? 'Base' : 'Basis');
+        bdBase.textContent = '–';
+        bdPersonsLabel.textContent = (langSelect.value==='en' ? 'People tier' : 'Personen-Staffel');
+        bdPersons.textContent = (langSelect.value==='en' ? '€0.00' : '0,00 €');
+        bdTime.textContent = (langSelect.value==='en' ? '€0.00' : '0,00 €');
+        bdExtras.textContent = (L.bdNoExtras || (langSelect.value==='en' ? 'none' : 'keine'));
+        bdTotal.textContent = '–';
+        if (bdDepositRow) {
+          if (depo) { bdDeposit.textContent = euro(depo); bdDepositRow.style.display = ''; }
+          else { bdDepositRow.style.display = 'none'; }
+        }
+        if (bdGrandTotalRow) bdGrandTotalRow.style.display = 'none';
+        CURRENT_PRICE = depo
+          ? { currency:'EUR', total:null, caution:depo, extrasSelected:[] }
+          : null;
+        priceBreakdown.style.display = 'block';
+        updateSticky();
+      };
+
+      if (!(start && end) || end <= start){
+        priceValue.textContent = '–';
+        priceBreakdown.style.display = 'none';
+        hidePopover();
+        updateSticky();
+        return;
+      }
+
+      const cfg = PRICING[currentKey] || PRICING.WE;
+
+      if (currentKey === 'WA' && cfg.usePersonBands) {
+        const totalMin = Math.round((end - start) / 60000);
+        const tier = (cfg.tiers || []).find(t => totalMin <= t.maxMin) || null;
+
+        if (!tier) {
+          const depo = cfg.cautionFn ? cfg.cautionFn(persons) : null;
+
+          priceValue.textContent = depo
+            ? `${L.priceOnReq} + ${euro(depo)} Kaution`
+            : L.priceOnReq;
+
+          bdBaseLabel.textContent    = (langSelect.value==='en' ? 'Base' : 'Basis');
+          bdBase.textContent         = '–';
+          bdPersonsLabel.textContent = (langSelect.value==='en' ? 'People tier' : 'Personen-Staffel');
+          bdPersons.textContent      = (langSelect.value==='en' ? '€0.00' : '0,00 €');
+          bdTime.textContent         = (langSelect.value==='en' ? '€0.00' : '0,00 €');
+          bdExtras.textContent       = (L.bdNoExtras || (langSelect.value==='en' ? 'none' : 'keine'));
+          bdTotal.textContent        = '–';
+
+          if (bdDepositRow) {
+            if (depo) { bdDeposit.textContent = euro(depo); bdDepositRow.style.display = ''; }
+            else { bdDepositRow.style.display = 'none'; }
+          }
+          
+          if (bdGrandTotalRow) bdGrandTotalRow.style.display = 'none';
+
+          CURRENT_PRICE = {
+            currency: 'EUR',
+            tierHours: 'über 16',
+            personsMultiplier: 1,
+            personsLabel: persons ? (persons <= 45 ? '≤45' : '≥46') : '',
+            base: null,
+            personsDelta: 0,
+            timeSurcharge: 0,
+            extrasCount: 0,
+            extrasCost: 0,
+            total: null,        
+            extrasSelected: [],
+            caution: depo
+          };
+
+          priceBreakdown.style.display = 'block';
+          updateSticky();
+          timePopover.textContent = (langSelect.value === 'en')
+            ? 'No time surcharge at Wassertorplatz.'
+            : 'Kein Zeit-Zuschlag am Wassertorplatz.';
+          return;
+        }
+
+        const base = tier.base;                  
+        const tierHours = tier.hoursLabel;       
+        const band = (cfg.personBands || []).find(b => persons <= b.max) || null;
+        const personsAdd = band ? (band.addByTier?.[tierHours] ?? 0) : 0;
+        const personsLabel = band ? band.label : (persons ? '≥46' : '');
+        const total = base + personsAdd;         
+
+        const depo = cfg.cautionFn ? cfg.cautionFn(persons) : null;
+
+        priceValue.textContent = depo
+          ? `${euro(total)} + ${euro(depo)} Kaution`
+          : euro(total);
+
+        const baseLabel = (langSelect.value==='en')
+          ? (tierHours === 12 ? 'Base (up to 12 h)' : 'Base (12–16 h)')
+          : (tierHours === 12 ? 'Basis (bis 12 Std.)' : 'Basis (12–16 Std.)');
+
+        bdBaseLabel.textContent    = baseLabel;
+        bdBase.textContent         = euro(base);             
+        bdPersonsLabel.textContent = (langSelect.value==='en'
+          ? `People tier (${personsLabel || ''})`
+          : `Personen-Staffel (${personsLabel || ''})`);
+        bdPersons.textContent      = personsAdd ? euro(personsAdd) : (langSelect.value==='en' ? '€0.00' : '0,00 €');
+        bdTime.textContent         = (langSelect.value==='en' ? '€0.00' : '0,00 €');
+        bdExtras.textContent       = (L.bdNoExtras || (langSelect.value==='en' ? 'none' : 'keine'));
+        bdTotal.textContent        = euro(total);            
+
+        if (bdDepositRow) {
+          if (depo) { bdDeposit.textContent = euro(depo); bdDepositRow.style.display = ''; }
+          else { bdDepositRow.style.display = 'none'; }
+        }
+
+        if (bdGrandTotalRow) {
+          if (depo) {
+            bdGrandTotalLabel.textContent = (langSelect.value==='en')
+              ? 'Total incl. deposit' : 'Summe inkl. Kaution';
+            bdGrandTotal.textContent = euro(total + depo);
+            bdGrandTotalRow.style.display = '';
+          } else {
+            bdGrandTotalRow.style.display = 'none';
+          }
+        }
+
+        CURRENT_PRICE = {
+          currency: 'EUR',
+          tierHours,
+          personsMultiplier: 1,
+          personsLabel,
+          base: Number(base),
+          personsDelta: Number(personsAdd),
+          timeSurcharge: 0,
+          extrasCount: 0,
+          extrasCost: 0,
+          total: Number(total),  
+          extrasSelected: [],
+          caution: depo          
+        };
+
+        timePopover.textContent = (langSelect.value === 'en')
+          ? 'No time surcharge at Wassertorplatz.'
+          : 'Kein Zeit-Zuschlag am Wassertorplatz.';
+
+        priceBreakdown.style.display = 'block';
+        updateSticky();
+        return;
+      }
+
+      const totalMin = Math.round((end - start) / 60000);
+      const tier = (cfg.tiers || []).find(t => totalMin <= t.maxMin) || null;
+
+      let mult = null, pplLabel = ">100";
+      for (const pt of (cfg.personTiers || [])){
+        if (persons <= pt.max){ mult = pt.mult; pplLabel = pt.label; break; }
+      }
+
+      if(!tier || mult === null){
+        showPriceOnReq();
+        return;
+      }
+
+      const base = tier.base;
+      const basePlusPersons = base * mult;
+      const personsDelta = basePlusPersons - base;
+      const timeAdd = typeof cfg.surcharge === 'function' ? cfg.surcharge(start, end) : 0;
+
+      const checked = Array.from(document.querySelectorAll('#extrasContainer input:checked'));
+      let extrasCost = checked.reduce((sum, el)=> sum + Number(el.dataset.price||0), 0);
+      const extrasSelected = checked.map(el => (langSelect.value==='en' ? el.dataset.labelEn : el.dataset.labelDe) || '');
+
+      // NIEUW: Fietsen prijs toevoegen
+      let totalBikes = 0;
+      if (currentKey === 'WE' && document.getElementById('fBikesYes') && document.getElementById('fBikesYes').checked) {
+        totalBikes = (parseInt(document.getElementById('fBikesLauf').value)||0) +
+                     (parseInt(document.getElementById('fBikes12').value)||0) +
+                     (parseInt(document.getElementById('fBikes16').value)||0) +
+                     (parseInt(document.getElementById('fBikes20').value)||0) +
+                     (parseInt(document.getElementById('fBikes24').value)||0) +
+                     (parseInt(document.getElementById('fBikes26').value)||0);
+        extrasCost += (totalBikes * 1); // 1 Euro per fiets
+        if (totalBikes > 0) {
+          extrasSelected.push(langSelect.value === 'en' ? `${totalBikes}x Kids bike(s)` : `${totalBikes}x Kinderfahrrad`);
+        }
+      }
+
+      const total = basePlusPersons + timeAdd + extrasCost;
+
+      const depo = (typeof cfg.cautionFn === 'function') ? cfg.cautionFn(persons, start, end) : null;
+
+      priceValue.textContent = depo
+        ? `${euro(total)} + ${euro(depo)} Kaution`
+        : euro(total);
+      bdBaseLabel.textContent = (langSelect.value==='en' ? I18N.en.bdBase(tier.hoursLabel) : I18N.de.bdBase(tier.hoursLabel));
+      bdBase.textContent = euro(base);
+      bdPersonsLabel.textContent = (langSelect.value==='en' ? I18N.en.bdPersons(pplLabel) : I18N.de.bdPersons(pplLabel));
+      bdPersons.textContent = personsDelta === 0 ? (langSelect.value==='en' ? "€0.00" : "0,00 €") : euro(personsDelta);
+      bdTime.textContent = timeAdd ? euro(timeAdd) : (langSelect.value==='en' ? "€0.00" : "0,00 €");
+      bdExtras.textContent = extrasCost ? euro(extrasCost) : (L.bdNoExtras || (langSelect.value==='en' ? "none" : "keine"));
+      bdTotal.textContent = euro(total);
+
+      if (bdDepositRow) {
+        if (depo) { bdDeposit.textContent = euro(depo); bdDepositRow.style.display = ''; }
+        else { bdDepositRow.style.display = 'none'; }
+      }
+
+      if (bdGrandTotalRow) {
+        if (depo) {
+          bdGrandTotalLabel.textContent = (langSelect.value==='en')
+            ? 'Total incl. deposit' : 'Summe inkl. Kaution';
+          bdGrandTotal.textContent = euro(total + depo);
+          bdGrandTotalRow.style.display = '';
+        } else {
+          bdGrandTotalRow.style.display = 'none';
+        }
+      }
+
+      CURRENT_PRICE = {
+        currency: 'EUR',
+        tierHours: tier.hoursLabel,
+        personsMultiplier: mult,
+        personsLabel: pplLabel,
+        base: Number(base),
+        personsDelta: Number(personsDelta),
+        timeSurcharge: Number(timeAdd),
+        extrasCount: checked.length + (totalBikes > 0 ? 1 : 0),
+        extrasCost: Number(extrasCost),
+        total: Number(total),
+        extrasSelected,
+        caution: depo
+      };
+
+      priceBreakdown.style.display = 'block';
+      updateSticky();
+
+      if (extrasRunning) extrasRunning.textContent = `Extras: ${euro(extrasCost)}`;
+    }
+
+    /* ===== Popover help ===== */
+    function togglePopover(){ const isOpen = timePopover.classList.contains('show'); if(isOpen){ hidePopover(); return; } showPopover(); }
+    function showPopover(){
+      timePopover.classList.add('show'); timePopover.setAttribute('aria-hidden','false'); timeInfoIcon.setAttribute('aria-expanded','true');
+      const rect = timePopover.getBoundingClientRect();
+      if(rect.right > window.innerWidth - 12){ timePopover.style.left = 'auto'; timePopover.style.right = '0'; }
+      else { timePopover.style.left = '0'; timePopover.style.right = 'auto'; }
+    }
+    function hidePopover(){
+      timePopover.classList.remove('show'); timePopover.setAttribute('aria-hidden','true'); timeInfoIcon.setAttribute('aria-expanded','false');
+    }
+    document.addEventListener('click', (e)=>{ if(!timePopover.classList.contains('show')) return; const within = e.target.closest('.tooltip-wrap'); if(!within) hidePopover(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') hidePopover(); if((e.key === 'Enter' || e.key === ' ') && document.activeElement === timeInfoIcon){ e.preventDefault(); togglePopover(); } });
+    timeInfoIcon.addEventListener('click', (e)=>{ e.stopPropagation(); togglePopover(); });
+    timeInfoIcon.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); togglePopover(); } });
+
+    /* ===== Popover help (Personen / Weinstraße) ===== */
+    function showPersonsPopover(){
+      personsPopover.classList.add('show'); personsPopover.setAttribute('aria-hidden','false'); personsInfoIcon.setAttribute('aria-expanded','true');
+      const rect = personsPopover.getBoundingClientRect();
+      if(rect.right > window.innerWidth - 12){ personsPopover.style.left='auto'; personsPopover.style.right='0'; }
+      else { personsPopover.style.left='0'; personsPopover.style.right='auto'; }
+    }
+    function hidePersonsPopover(){ personsPopover.classList.remove('show'); personsPopover.setAttribute('aria-hidden','true'); personsInfoIcon.setAttribute('aria-expanded','false'); }
+    function togglePersonsPopover(){ personsPopover.classList.contains('show') ? hidePersonsPopover() : showPersonsPopover(); }
+    personsInfoIcon.addEventListener('click', (e)=>{ e.stopPropagation(); togglePersonsPopover(); });
+    personsInfoIcon.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); togglePersonsPopover(); } });
+    document.addEventListener('click', (e)=>{ if(!personsPopover.classList.contains('show')) return; if(!e.target.closest('.tooltip-wrap')) hidePersonsPopover(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hidePersonsPopover(); });
+
+    /* ===== Success overlay ===== */
+    function showSuccessOverlay(payload){
+      const L = I18N[langSelect.value] || I18N.de;
+      successTitle.textContent = L.successTitle;
+      btnBackToCalendar.textContent = L.successBack;
+
+      const labels = L.successSummaryLabels;
+      const extrasText = (CURRENT_PRICE && CURRENT_PRICE.extrasSelected && CURRENT_PRICE.extrasSelected.length)
+        ? CURRENT_PRICE.extrasSelected
+        : [];
+
+      const start = parseLocalDT(payload.from);
+      const end   = parseLocalDT(payload.to);
+
+      const messageRow = payload.message ? `<div><strong>${labels.message}:</strong> ${esc(payload.message)}</div>` : "";
+
+      let depositRow = "";
+      if (CURRENT_PRICE && CURRENT_PRICE.caution) {
+        depositRow = `<div><strong>Kaution:</strong> ${euro(CURRENT_PRICE.caution)}</div>`;
+      }
+
+      successSummary.innerHTML = `
+        <div><strong>${labels.school}:</strong> ${esc(payload.school || "")}</div>
+        <div><strong>${labels.from}:</strong> ${formatDT(start, langSelect.value)}</div>
+        <div><strong>${labels.to}:</strong> ${formatDT(end,   langSelect.value)}</div>
+        ${payload.persons ? `<div><strong>${labels.persons}:</strong> ${esc(payload.persons)}</div>` : ""}
+        ${depositRow}
+        <div><strong>${labels.extras}:</strong> ${extrasText.length ? esc(extrasText.join(", ")) : (L.bdNoExtras)}</div>
+        ${messageRow}
+      `;
+
+      const dateStr = start.toLocaleDateString(langSelect.value === 'en' ? 'en-GB' : 'de-DE');
+      const startStr = start.toLocaleTimeString(langSelect.value === 'en' ? 'en-GB' : 'de-DE', { hour: '2-digit', minute: '2-digit' });
+      const endStr = end.toLocaleTimeString(langSelect.value === 'en' ? 'en-GB' : 'de-DE', { hour: '2-digit', minute: '2-digit' });
+      const mailSubject = `Anfrage / Request Verkehrsschule ${payload.school || ""} - ${dateStr}`;
+      const mailLink = `mailto:events@kidbike.de?subject=${encodeURIComponent(mailSubject)}`;
+      
+      successLead.innerHTML = L.successAdditional(
+        esc(payload.school || ""), 
+        dateStr, 
+        startStr, 
+        endStr, 
+        mailLink
+      );
+
+      successOverlay.style.display = 'flex';
+      btnBackToCalendar.focus();
+
+      const escKeyHandler = (e)=>{ if(e.key === 'Escape') hideSuccessOverlay(); };
+      document.addEventListener('keydown', escKeyHandler, { once:true });
+
+      btnBackToCalendar.onclick = hideSuccessOverlay;
+    }
+
+    function hideSuccessOverlay(){ successOverlay.style.display = 'none'; }
+
+    function showToast(text){
+      successText.textContent = text;
+      successMsg.classList.add('show');
+      setTimeout(()=> successMsg.classList.remove('show'), 3000);
+    }
+
+    /* ===== Submit naar Apps Script ===== */
+    const APPS_SCRIPT_URL = "/.netlify/functions/submit";
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      wasSubmitted = true;
+
+      const errBox = document.getElementById('submitError');
+      errBox.style.display = 'none';
+      errBox.textContent = '';
+
+      if(!validateTimes()) {
+        const firstErr = [fPersons,fFrom,fTo,fEmail,fPhoneNat,fStreet,fHouse,fZip,fCity]
+          .find(el=>el && el.classList && el.classList.contains('error'));
+        if(firstErr) firstErr.focus();
+        return;
+      }
+
+      btnSubmit.classList.add('loading');
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = (langSelect.value==='en'?'Sending…':'Senden…');
+
+      const ctl = new AbortController();
+      const t = setTimeout(()=>ctl.abort(), 15000);
+
+      try {
+        const nameCombined = [fSalutation.value, fFirstName.value, fLastName.value].filter(Boolean).join(' ').trim();
+        const phoneCombined = [fPhoneCountry.value, (fPhoneNat.value||'').trim()].filter(Boolean).join(' ');
+
+        const extrasChecked = Array.from(document.querySelectorAll('#extrasContainer input:checked'));
+        const extrasList = extrasChecked.map(el =>
+          (langSelect.value === 'en' ? el.dataset.labelEn : el.dataset.labelDe) || el.id.replace(/^x_/, '')
+        );
+
+        let bikesValue = '';
+        if (currentKey === 'WE') {
+          if (fBikesYes.checked) {
+            let b = [];
+            if (parseInt(fBikesLauf.value)>0) b.push(`${fBikesLauf.value}x Laufrad (2-3 J.)`);
+            if (parseInt(fBikes12.value)>0) b.push(`${fBikes12.value}x 12" (3-4 J.)`);
+            if (parseInt(fBikes16.value)>0) b.push(`${fBikes16.value}x 16" (4-6 J.)`);
+            if (parseInt(fBikes20.value)>0) b.push(`${fBikes20.value}x 20" (6-8 J.)`);
+            if (parseInt(fBikes24.value)>0) b.push(`${fBikes24.value}x 24" (8-10 J.)`);
+            if (parseInt(fBikes26.value)>0) b.push(`${fBikes26.value}x 26" (10-14 J.)`);
+            bikesValue = 'Ja: ' + b.join(', ');
+          }
+          else if (fBikesNo.checked) bikesValue = 'Nein';
+        }
+
+        const payload = {
+          school:  fSchool.value,              
+          from:    fFrom.value,
+          to:      fTo.value,
+          persons: fPersons.value,
+          type_free: fTypeFree.value,
+          bikes:   bikesValue,
+          salutation: fSalutation.value,
+          first_name: fFirstName.value,
+          last_name:  fLastName.value,
+          name:    nameCombined || (fFirstName.value + ' ' + fLastName.value).trim(),
+          email:   fEmail.value,
+          phone_country: fPhoneCountry.value,
+          phone_national: fPhoneNat.value,
+          phone:   phoneCombined,
+          street:  fStreet.value,
+          house:   fHouse.value,
+          zip:     fZip.value,
+          city:    fCity.value,
+          zipcity: fZipCity.value,
+          address: formatAddress(),
+          message: fMsg.value, 
+          has_overlap: false,
+          extras:  extrasList,
+          lang:    langSelect.value || 'de',
+          price:   CURRENT_PRICE,
+          priceText: priceValue.textContent,
+          accepted_terms: !!fAccept.checked
+        };
+
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+          redirect: 'follow',
+          signal: ctl.signal
+        }).catch(err => {
+          throw new Error('Netzwerk- oder CORS-Fehler: ' + String(err && err.message ? err.message : err));
+        });
+
+        clearTimeout(t);
+
+        const text = await res.text().catch(()=> '');
+        if (!res.ok) {
+          errBox.textContent = `Serverfehler (HTTP ${res.status}):\n` + text.slice(0,1000);
+          errBox.style.display = 'block';
+          throw new Error('HTTP '+res.status);
+        }
+
+        let out;
+        try {
+          out = JSON.parse(text);
+        } catch {
+          errBox.textContent = 'Serverantwort ist KEINE JSON (vermutlich HTML/Redirect):\n' + text.slice(0,1000);
+          errBox.style.display = 'block';
+          throw new Error('Non-JSON response');
+        }
+
+        if (!out.ok) {
+          const msg = out.error || 'Unbekannter Fehler (ok:false).';
+          errBox.textContent = msg;
+          errBox.style.display = 'block';
+          throw new Error(msg);
+        }
+
+        showSuccessOverlay({
+          school: payload.school,
+          from:   payload.from,
+          to:     payload.to,
+          persons: payload.persons,
+          message: payload.message
+        });
+        closeModal();
+        reloadCalendarAfterSubmission(); 
+
+      } catch(err){
+        console.error('Submit failed:', err);
+      } finally {
+        clearTimeout(t);
+        btnSubmit.classList.remove('loading');
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = (I18N[langSelect.value]||I18N.de).btnSend || 'Anfrage senden';
+      }
+    });
+
+    /* ===== embed-size throttle ===== */
+    function _sendHeight(){
+      var doc=document.documentElement, body=document.body;
+      var h=Math.max(body.scrollHeight, body.offsetHeight, doc.clientHeight, doc.scrollHeight, doc.offsetHeight);
+      parent.postMessage({ type:'embed-size', height:h }, '*');
+    }
+    const sendHeightThrottled = debounce(_sendHeight, 120);
+    window.addEventListener('load', sendHeightThrottled);
+    window.addEventListener('resize', sendHeightThrottled);
+    var ro = new ResizeObserver(()=>sendHeightThrottled());
+    ro.observe(document.body);
+
+    /* ===== Init ===== */
+    (async function init(){
+      logoImg.style.display = 'block';
+      document.getElementById('calendarLoading').firstChild.nodeValue = (I18N[langSelect.value]||I18N.de).loadingCalendar;
+      await discoverSchools();
+      applyI18n();
+      window.addEventListener('resize', () => applyResponsiveView());
+      document.body.classList.toggle('touch', isTouchDevice());
+    })();
+
+    /* ===== Auto-refresh holds every 30 seconds ===== */
+    setInterval(async () => {
+      if (currentKey && calendar) {
+        try {
+          const r = await fetch(`${APPS_SCRIPT_URL}?type=holds&school=${encodeURIComponent(currentKey)}&v=${Date.now()}`);
+          if (r.ok) {
+            const arr = await r.json();
+            if (Array.isArray(arr)) {
+              currentHolds = arr; // NIEUW
+              const holdEvents = arr.map(h => ({
+                title: (langSelect.value==='en'
+                  ? 'Tentative — awaiting confirmation'
+                  : 'Vorläufig reserviert — Bestätigung ausstehend'),
+                start: new Date(h.start),
+                end:   new Date(h.end),
+                editable: false,
+                overlap: true,
+                classNames: ['tentative']
+              }));
+              
+              calendar.getEvents()
+                .filter(ev => (ev.classNames || []).includes('tentative'))
+                .forEach(ev => ev.remove());
+              holdEvents.forEach(ev => calendar.addEvent(ev));
+            }
+          }
+        } catch(_) {}
+      }
+    }, 30000);
+
+    /* ===== Handle successful submission - reload holds ===== */
+    function reloadCalendarAfterSubmission() {
+      if (currentKey && calendar) {
+        setTimeout(async () => {
+          try {
+            const r = await fetch(`${APPS_SCRIPT_URL}?type=holds&school=${encodeURIComponent(currentKey)}&v=${Date.now()}`);
+            if (r.ok) {
+              const arr = await r.json();
+              if (Array.isArray(arr)) {
+                const holdEvents = arr.map(h => ({
+                  title: (langSelect.value==='en'
+                    ? 'Tentative — awaiting confirmation'
+                    : 'Vorläufig reserviert — Bestätigung ausstehend'),
+                  start: new Date(h.start),
+                  end:   new Date(h.end),
+                  editable: false,
+                  overlap: true,
+                  classNames: ['tentative']
+                }));
+                
+                calendar.getEvents()
+                  .filter(ev => (ev.classNames || []).includes('tentative'))
+                  .forEach(ev => ev.remove());
+                holdEvents.forEach(ev => calendar.addEvent(ev));
+              }
+            }
+          } catch(_) {}
+        }, 1000);
+      }
+    }
+
+    /* ===== Window message handler for embed communication ===== */
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'calendar-refresh') {
+        if (currentKey) {
+          loadCalendar(currentKey);
+        }
+      }
+    });
+
+    /* ===== Keyboard shortcuts ===== */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+         if (modalBack.style.display === 'flex') closeModal();
+      }
+      if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
+        e.preventDefault();
+        if (currentKey) loadCalendar(currentKey);
+      }
+    });
+
+    /* ===== Touch device enhancements ===== */
+    if (isTouchDevice()) {
+      document.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.fc-event')) {
+          e.target.style.opacity = '0.7';
+          setTimeout(() => {
+            if (e.target.style) e.target.style.opacity = '';
+          }, 150);
+        }
+      });
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', (e) => {
+        const now = (new Date()).getTime();
+        if (now - lastTouchEnd <= 300) e.preventDefault();
+        lastTouchEnd = now;
+      }, false);
+    }
+
+    /* ===== Error handling and user feedback ===== */
+    window.addEventListener('error', (event) => { console.error('Application error:', event.error); });
+    window.addEventListener('unhandledrejection', (event) => { console.error('Unhandled promise rejection:', event.reason); event.preventDefault(); });
+
+    /* ===== Accessibility enhancements ===== */
+    function announceToScreenReader(message) {
+      const announcement = document.createElement('div');
+      announcement.setAttribute('aria-live', 'polite');
+      announcement.setAttribute('aria-atomic', 'true');
+      announcement.className = 'visually-hidden';
+      announcement.textContent = message;
+      document.body.appendChild(announcement);
+      setTimeout(() => { document.body.removeChild(announcement); }, 1000);
+    }
+
+    const _origShowSuccessOverlay = showSuccessOverlay;
+    showSuccessOverlay = function(payload) {
+      _origShowSuccessOverlay(payload);
+      announceToScreenReader( langSelect.value === 'en' ? 'Request submitted successfully' : 'Anfrage erfolgreich gesendet' );
+    };
+  </script>
+</body>
+</html>

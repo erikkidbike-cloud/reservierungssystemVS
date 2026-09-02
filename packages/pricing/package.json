@@ -1,0 +1,13 @@
+{
+  "name": "@vs/pricing",
+  "version": "0.1.0",
+  "description": "Pure, tested pricing + validation engine for the KidBike VS booking system. Single source of truth used by both the public form and the internal console.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types \"test/*.test.ts\""
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "reservierungssystem-vs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "KidBike Verkehrsschulen booking system (rebuild). Monorepo: pricing engine, shared domain, and (future) Next.js app.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@vs/domain",
+  "version": "0.1.0",
+  "description": "Shared domain logic for the KidBike VS booking system (booking state machine).",
+  "type": "module",
+  "exports": {
+    ".": "./src/booking-state.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types \"test/*.test.ts\""
+  },
+  "license": "UNLICENSED"
+}
