@@ -71,6 +71,21 @@ h2 {
   margin-left: auto;
 }
 
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.linklike:hover {
+  text-decoration: underline;
+}
+
 .cards {
   display: grid;
   gap: 14px;

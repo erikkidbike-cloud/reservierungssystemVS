@@ -4,6 +4,7 @@
 
 import Link from 'next/link';
 import { getSessionUser, canManageTariffs, canManageAgreements, canSeeContactData } from '@/lib/auth';
+import { signOut } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,10 +16,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <main className="wrap">
         <h1>Anmeldung erforderlich</h1>
         <p className="muted">
-          Bitte mit dem KidBike-Konto anmelden, um die interne Verwaltung zu öffnen.
+          Bitte anmelden, um die interne Verwaltung zu öffnen.
         </p>
         <p>
-          <Link href="/admin/login">Mit Microsoft anmelden →</Link>
+          <Link href="/login">Anmelden →</Link>
         </p>
       </main>
     );
@@ -50,6 +51,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <span className="muted">
           {user.email} · <span className="badge">{role}</span>
         </span>
+        <form action={signOut}>
+          <button type="submit" className="linklike">
+            Abmelden
+          </button>
+        </form>
       </nav>
       <main className="wrap">
         {!canSeeContactData(role) && (

@@ -84,40 +84,56 @@ test harness (`./supabase/test/run-tests.sh`) applies these same files in this
 same order against a throwaway Postgres and passes 48 assertions, so you're not
 the first one to run this sequence.
 
-## 3. Set up Microsoft / Entra ID login
+## 3. Set up magic-link login (for now)
 
-1. In Supabase: **Authentication → Providers → Azure**.
-2. You'll need an Azure AD (Entra ID) App Registration. If KidBike already has
-   an Entra ID tenant (likely, if staff have `@kidbike.de` Microsoft accounts):
-   - In the [Azure Portal](https://portal.azure.com) → **Entra ID** →
-     **App registrations** → **New registration**.
-   - Name: `KidBike VS Booking System` (or similar).
-   - Redirect URI: **Web** →
-     `https://<your-project-ref>.supabase.co/auth/v1/callback`
-     (Supabase's Auth provider page shows you this exact URL — copy it from
-     there rather than retyping).
-   - After creating it: **Certificates & secrets** → new client secret → copy
-     its **value** immediately (it's hidden after you navigate away).
-   - Note the **Application (client) ID** and **Directory (tenant) ID** from
-     the app's Overview page.
-3. Back in Supabase's Azure provider settings, paste in the Client ID, Client
-   Secret, and (if using a single-tenant registration) the Tenant ID or a
-   custom "Azure Tenant URL". Save.
-4. Optional but recommended: restrict sign-ups to the KidBike domain — Azure
-   App Registrations can be scoped to "Accounts in this organizational
-   directory only" so only `@kidbike.de` accounts can authenticate at all.
+Entra ID needs admin rights on KidBike's Azure tenant that may not be available
+yet — that's fine, it's **purely additive** and can be turned on later with no
+schema or code change (see the appendix at the end of this doc). Supabase Auth
+treats every sign-in method identically underneath: the `handle_new_user()`
+trigger creates the same `profiles` row regardless of *how* someone
+authenticated, and the app's `getSessionUser()` never looks at which provider
+was used. Magic link (an emailed one-click login, no password) works today with
+almost no setup:
+
+1. In Supabase: **Authentication → Providers** — **Email** is already enabled
+   by default on every new project (this is what handles magic links; no
+   toggle needed here).
+2. **Authentication → URL Configuration**:
+   - **Site URL**: `http://localhost:3000` while developing locally; change it
+     to your real deployed URL (e.g. `https://vs.kidbike.de`) once `apps/web`
+     is on Netlify.
+   - **Redirect URLs**: add `http://localhost:3000/auth/callback`, and later
+     the production equivalent (`https://<your-site>/auth/callback`). Supabase
+     refuses to redirect anywhere not on this list — a magic link will look
+     like it silently fails if this step is skipped.
+3. **Set `NEXT_PUBLIC_SITE_URL`** in `apps/web/.env.local` (and later in
+   Netlify) once you have a real deployed URL — see `.env.example`. It's not
+   strictly required for local dev (the app falls back to the request's own
+   origin), but is worth setting from the start so you don't hit a surprise
+   later behind Netlify's proxy.
+4. **Watch the email rate limit.** Supabase's default project uses its own
+   shared test mail sender for auth emails, capped very low (a handful per
+   hour) — fine for you alone testing, but ~5–30 staff logging in around the
+   same time could hit it and get silently stuck waiting for an email that
+   never arrives. Before rolling this out to real staff, configure a custom
+   SMTP provider: **Authentication → Emails → SMTP Settings**. This repo's plan
+   already calls for a transactional mail provider in Phase 2 (Resend or
+   Postmark, for booking confirmations) — setting that provider up now and
+   pointing Supabase's SMTP at it kills two birds at once.
+
+Try it: go to `/login` in the app, enter your email, check your inbox
+(including spam), click the link. You should land on `/admin`.
 
 The first person to sign in becomes a `profiles` row with `role = 'staff'`
-automatically (that's `handle_new_user()`, already applied in `0007`). **You'll
-need to manually promote yourself to `admin`** the first time — there's no
-admin yet to do it through the UI:
+automatically. **You'll need to manually promote yourself to `admin`** the
+first time — there's no admin yet to do it through the UI:
 
 ```sql
 update profiles set role = 'admin' where email = 'your-email@kidbike.de';
 ```
 
 Run that in the SQL Editor after your first successful login (log in once via
-the app so the `profiles` row exists, then run this).
+the app so the `profiles` row exists, then run this, then reload `/admin`).
 
 ## 4. Get your API keys
 
@@ -142,12 +158,13 @@ npm run dev
 ```
 
 Netlify (once you're ready to deploy `apps/web` there): **Site settings →
-Environment variables**, add the same four variables
+Environment variables**, add the same variables
 (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`, `TZ=Europe/Berlin`). The `TZ` one matters more than
-it looks: the closing-hour and hold-expiry rules are wall-clock rules evaluated
-with local date arithmetic, ported from the original browser code — the server
-process has to actually run in Berlin time or those rules silently shift.
+`SUPABASE_SERVICE_ROLE_KEY`, `TZ=Europe/Berlin`, `NEXT_PUBLIC_SITE_URL`). The
+`TZ` one matters more than it looks: the closing-hour and hold-expiry rules are
+wall-clock rules evaluated with local date arithmetic, ported from the original
+browser code — the server process has to actually run in Berlin time or those
+rules silently shift.
 
 ## 6. Verify it end to end
 
@@ -155,9 +172,10 @@ process has to actually run in Berlin time or those rules silently shift.
    the three locations and (once bookings exist) upcoming occupancy, reading
    from `public_availability` with **no personal data** in the response (check
    this in the browser's network tab if you want to see it for yourself).
-2. Log in at `/admin` with your Microsoft account. After promoting yourself to
+2. Log in at `/login` with your email (magic link). After promoting yourself to
    `admin` (step 3), you should see **Übersicht**, **Buchungen**, **Preise**,
-   **Verträge**, and **Benutzer** in the nav.
+   **Verträge**, and **Benutzer** in the nav, and an **Abmelden** (sign out)
+   control on the right.
 3. Open **Verträge** → **Weinstraße** — you should see all 16 real clauses,
    editable. Change something small, save, reload: it persists. This is the
    actual point of storing the contract text in the database rather than in
@@ -201,7 +219,7 @@ ways to fix that in Supabase, either is fine:
 
 ## What's still genuinely blocked after this
 
-Nothing about Supabase itself — once the six steps above are done, Phase 1's
+Nothing about Supabase itself — once the steps above are done, Phase 1's
 database and the admin console's read/write paths are live. What remains is
 application work already scoped in `docs/06-handoff-backlog.md`: the public
 booking calendar and wizard (2.1/2.2), wiring `renderAgreements()` into an
@@ -209,3 +227,57 @@ actual "send the Nutzungsvereinbarung" action once a booking is approved (3.1
 is the rendering pipeline; nothing calls it from the booking flow yet), and the
 WA deposit-clause question in `docs/05-open-questions.md` (§18) before any WA
 agreement goes out for real.
+
+## Appendix — adding Microsoft/Entra ID later
+
+Whenever Entra admin rights become available. This is additive, not a
+migration: magic link keeps working for anyone who doesn't switch, and no
+database change is needed — `handle_new_user()` and `getSessionUser()` don't
+care which provider a login came through.
+
+1. In Supabase: **Authentication → Providers → Azure**.
+2. You'll need an Azure AD (Entra ID) App Registration. In the
+   [Azure Portal](https://portal.azure.com) → **Entra ID** →
+   **App registrations** → **New registration**:
+   - Name: `KidBike VS Booking System` (or similar).
+   - Redirect URI: **Web** →
+     `https://<your-project-ref>.supabase.co/auth/v1/callback` (Supabase's
+     Azure provider settings page shows you this exact URL — copy it from
+     there rather than retyping).
+   - **Certificates & secrets** → new client secret → copy its **value**
+     immediately (it's hidden after you navigate away).
+   - Note the **Application (client) ID** and **Directory (tenant) ID** from
+     the app's Overview page.
+3. Back in Supabase's Azure provider settings, paste in the Client ID, Client
+   Secret, and Tenant ID (or a custom Azure Tenant URL for single-tenant
+   registrations). Save.
+4. Optional but recommended: restrict sign-ups to the KidBike domain — scope
+   the App Registration to "Accounts in this organizational directory only" so
+   only `@kidbike.de` accounts can authenticate at all.
+5. Add a "Mit Microsoft anmelden" button to `apps/web/app/login/page.tsx`
+   alongside the existing email form, calling (from a small Server Action,
+   mirroring `requestMagicLink` in the same folder):
+   ```ts
+   const supabase = serverClient(await cookies());
+   const { data } = await supabase.auth.signInWithOAuth({
+     provider: 'azure',
+     options: { redirectTo: `${origin}/auth/callback` },
+   });
+   redirect(data.url);
+   ```
+   The existing `/auth/callback` route already handles the resulting `code`
+   exchange unchanged — it doesn't know or care which provider produced it.
+
+**One thing to watch:** if someone already has an account from signing in with
+magic link, and later uses Entra ID with the *same* email, Supabase's default
+settings don't reliably guarantee the two get merged into one identity — it can
+depend on project settings and has changed across Supabase versions, so don't
+assume it "just works" without checking. The safe operational habit: the first
+time each person tries Entra ID, check `profiles` for a duplicate email:
+```sql
+select id, email, role, created_at from profiles where email = 'person@kidbike.de';
+```
+If there are two rows, copy the role and any `user_locations` rows from the old
+one to the new one, then set the old row's `is_active = false` (don't delete
+it — `created_by`/`updated_by`/`assignee_id` foreign keys elsewhere may still
+point at it).

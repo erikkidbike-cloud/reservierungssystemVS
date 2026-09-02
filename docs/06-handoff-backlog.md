@@ -53,11 +53,22 @@ not this one. Listed for completeness.
   change from the original sketch: it is **service-role only** and takes an
   already-computed price, because pricing must have exactly one implementation
   (`packages/pricing`) — see `docs/03-roles-and-rls.md`.
-- **1.4 Microsoft / Entra ID auth.** ◑ **Half done** — the DB side is
-  implemented: `handle_new_user()` + the `on_auth_user_created` trigger create a
-  `profiles` row (default role `staff`) on first login. **Remaining:** configure
-  the Microsoft/Entra provider in the Supabase dashboard and build the admin UI
-  for assigning roles and `user_locations`. AC: staff log in; admin can set roles.
+- ◑ **1.4 Login.** **Shipped with magic link, Entra ID deferred** — Entra admin
+  access wasn't available yet, and since every sign-in method produces the same
+  `profiles` row (`handle_new_user()` doesn't know or care which provider was
+  used), that was never a blocker for the rest of Phase 1. Built: `/login`
+  (magic-link form), `/auth/callback` (code exchange), sign-out, and session-
+  refresh middleware (`apps/web/middleware.ts` — without it a session can drop
+  when its access token expires even though the refresh token is still good,
+  since only middleware/Actions/Route Handlers can write the renewed cookie).
+  See `docs/07-supabase-setup.md` §3 for the Supabase dashboard steps (Site URL
+  + Redirect URLs + the shared-SMTP rate-limit warning) and its appendix for
+  adding Entra ID later — a UI + dashboard addition, no schema change.
+  **Remaining:** enable the Azure provider once admin rights are available
+  (appendix has the exact steps + the one gotcha to watch for: a duplicate
+  `profiles` row if the same person's email signs in through both methods), and
+  build the admin UI for assigning roles and `user_locations` (currently done by
+  hand via SQL). AC: staff log in; admin can set roles.
 - ◑ **1.5 Internal console shell** — **scaffolded** in `apps/web` (Next.js 15 App
   Router, builds clean). `/admin` has the auth guard, the not-yet-activated-account
   state, and role-aware nav; `lib/auth.ts` centralises the role predicates.
