@@ -58,9 +58,21 @@ not this one. Listed for completeness.
   `profiles` row (default role `staff`) on first login. **Remaining:** configure
   the Microsoft/Entra provider in the Supabase dashboard and build the admin UI
   for assigning roles and `user_locations`. AC: staff log in; admin can set roles.
-- **1.5 Internal console shell** (Next.js `/admin`): auth guard, role-aware nav.
-- **1.6 Booking list + calendar** (internal), querying the role-appropriate view.
-  AC: staff never receive contact/financial columns (verify in the network tab).
+- ◑ **1.5 Internal console shell** — **scaffolded** in `apps/web` (Next.js 15 App
+  Router, builds clean). `/admin` has the auth guard, the not-yet-activated-account
+  state, and role-aware nav; `lib/auth.ts` centralises the role predicates.
+  **Remaining:** the `/admin/login` page wired to the Entra ID provider (needs 1.1
+  + 1.4), and the `/admin/tariffs` and `/admin/users` pages the nav links to.
+- ◑ **1.6 Booking list** — **done**; calendar remaining. `/admin/bookings` and
+  `/admin` read via `bookingsRelationFor(role)`, so staff/caretaker hit the
+  column-restricted `bookings_staff` view and the personal + financial columns are
+  never sent to the browser. **Remaining:** the internal calendar view, and
+  verifying the column restriction against a live project (the SQL suite already
+  asserts the view's shape).
+- **1.5b Public booking route** — ✅ **Done (ahead of Phase 2).**
+  `apps/web/app/api/booking-request/route.ts` validates, prices server-side with
+  `@vs/pricing`, then calls `create_booking_request` with the service role, and
+  maps every DB error code to an HTTP status. The client's price is discarded.
 - **1.7 Import existing data.** WE from the known 58-column workbook; WA/WI once
   columns are supplied (OQ 4). Map to `customers` + `bookings` (+ `blocks` for
   projects). AC: historical WE events appear in the internal calendar.
@@ -87,11 +99,23 @@ not this one. Listed for completeness.
 
 ## Phase 3 — documents & signing
 
-- **3.1 Nutzungsvereinbarung PDF template** from HTML, filled from a booking.
-  Copy the 16 clauses verbatim from `Nutzungsvereinbarung VS WE DE EN` (owner has
-  the .docx; bank details: KidBike e.V., Berliner Sparkasse,
-  DE09 1005 0000 0190 8304 17). AC: generated PDF matches the Word content
-  (DE + EN).
+- ◑ **3.1 Nutzungsvereinbarung PDF** — **pipeline done, clause text outstanding.**
+  `packages/documents` renders the agreement to A4 PDF via headless Chromium:
+  merge fields, facts table, numbered clause list, bank details, ID-upload notice,
+  signature block, DE + EN, all merged values HTML-escaped. Verified by generating
+  real 2-page PDFs.
+  **Remaining — needs the owner's `.docx`:** the 16 clause bodies are empty
+  placeholders. The wording is legally binding and must be copied **verbatim**,
+  not paraphrased. Fill `bodyDe`/`bodyEn` in `NV_CLAUSES` (`src/nv-contract.ts`);
+  the ids are stable so they can be done in any order. Until then
+  `buildNutzungsvereinbarungHtml()` throws unless `{ allowDraft: true }` is passed,
+  which stamps the document "ENTWURF — nicht rechtsverbindlich" and marks each
+  missing clause inline — an unfinished contract cannot be sent by accident.
+  Known constants already captured: bank details (KidBike e.V., Berliner
+  Sparkasse, DE09 1005 0000 0190 8304 17), 14-day cancellation, 100 € / +200 € /
+  max 300 € noise penalties, 50 € damage admin fee, 50 € per started hour late
+  closing, Mo–Sa 14:00–18:00 children's project window.
+  AC: generated PDF matches the Word content (DE + EN).
 - **3.2 Sammel-Nutzungsvereinbarung** — select multiple bookings → one PDF
   (30% Skonto clause, no deposit clause). Replaces the Excel `Sammel-NV`
   paste-tab. Source: `Sammel-Nutzungsvereinbarung VS WE DE.docx`.

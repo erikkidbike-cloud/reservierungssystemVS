@@ -1,0 +1,16 @@
+{
+  "name": "@vs/documents",
+  "version": "0.1.0",
+  "description": "Document generation for the KidBike VS booking system: booking terms and the Nutzungsvereinbarung (HTML + PDF).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types \"test/*.test.ts\""
+  },
+  "dependencies": {
+    "playwright-core": "^1.48.0"
+  },
+  "license": "UNLICENSED"
+}
