@@ -1,103 +1,80 @@
-// Nutzungsvereinbarung: structure, known constants, and clause registry.
+// Nutzungsvereinbarung: types, constants, clause lookup and merge fields.
 //
-// ⚠️ READ THIS BEFORE FILLING IN CLAUSES ⚠️
-// The Nutzungsvereinbarung is a binding contract. The clause BODIES below are
-// deliberately empty placeholders — the verbatim wording must be copied from the
-// owner's Word template ("Nutzungsvereinbarung VS WE DE EN"), not paraphrased,
-// invented or re-drafted. What is captured here is only what could be
-// established from the existing system with certainty: the clause set and order,
-// the organisation/bank details, and the monetary figures.
-//
-// renderNutzungsvereinbarung() refuses to produce a "final" document while any
-// required clause body is still empty (see render.ts), so a half-filled template
-// cannot quietly be sent to a customer.
-//
-// Backlog task 3.1.
+// The clause wording itself lives in nv-clauses.generated.ts, extracted
+// mechanically from the owner's Word templates by scripts/import-nv-docx.py.
+// It is a binding contract, so it is never retyped or paraphrased here — to
+// change the wording, edit the Word file and re-run the importer.
+
+import { NV_CLAUSE_SETS, NV_EMAIL_TEMPLATES } from './nv-clauses.generated.ts';
 
 export type Lang = 'de' | 'en';
 
-/** Organisation + bank details (from the existing Word template). */
+/** Organisation and bank details, as printed in the agreement. */
 export const ORGANISATION = {
   name: 'KidBike e.V.',
+  address: 'Bergholzstr. 8, 12099 Berlin',
   bank: 'Berliner Sparkasse',
   iban: 'DE09 1005 0000 0190 8304 17',
+  bic: 'BELADEBEXXX',
+  email: 'events@kidbike.de',
+  web: 'www.kidbike.de',
 } as const;
 
 /**
- * Monetary and time constants referenced by the clauses. These were established
- * from the current system and are safe to render; the surrounding sentences are
- * not.
+ * Figures the clauses refer to. Kept here so the app can reason about them
+ * (e.g. deposit-refund deadlines) without parsing prose.
  */
 export const NV_CONSTANTS = {
-  /** Cancellation is free up to this many days before the event. */
   cancellationFreeDays: 14,
-  /** Noise violation. */
+  depositRefundDays: 14,
   noisePenalty: 100,
-  /** Additional penalty if police / Ordnungsamt attend. */
   noiseAuthorityPenalty: 200,
-  /** Cap on the combined noise penalty. */
   noisePenaltyMax: 300,
-  /** Administration fee added to damage claims. */
   damageAdminFee: 50,
-  /** Charge per started hour for late closing. */
   lateClosingPerHour: 50,
-  /** Kinderfreizeitprojekt window (indoor room stays exclusive to the renter). */
-  kidsProjectDays: 'Mo–Sa',
-  kidsProjectFrom: '14:00',
-  kidsProjectTo: '18:00',
-  /** Sammel-NV only: discount for paying all dates in advance. */
-  sammelSkontoPercent: 30,
 } as const;
 
 export interface NvClause {
-  /** Stable id — used to match a clause to its verbatim text when filled in. */
   id: string;
   titleDe: string;
   titleEn: string;
-  /** Verbatim clause text. Empty string = NOT YET FILLED IN. */
   bodyDe: string;
   bodyEn: string;
-  /**
-   * Whether this clause must be present for the document to be valid. The
-   * Sammel-NV omits the deposit clause, so that one is optional.
-   */
-  required?: boolean;
 }
 
 /**
- * The 16 clauses of the standard Nutzungsvereinbarung, in the order they appear
- * in the Word template. Titles are known; bodies await the verbatim text.
+ * The clause set for a location. WE has 16 clauses, WA has 11 with materially
+ * different wording (no deposit clause, different liability, and its children's
+ * project runs Mon–Fri rather than Mon–Sat), so the sets are not interchangeable.
  */
-export const NV_CLAUSES: NvClause[] = [
-  { id: 'nutzungszeit', titleDe: 'Nutzungszeit', titleEn: 'Period of use', bodyDe: '', bodyEn: '', required: true },
-  { id: 'entgelt_kaution', titleDe: 'Nutzungsentgelt und Kaution', titleEn: 'Fee and deposit', bodyDe: '', bodyEn: '', required: true },
-  { id: 'personenzahl', titleDe: 'Personenzahl', titleEn: 'Number of people', bodyDe: '', bodyEn: '', required: true },
-  { id: 'stornierung', titleDe: 'Stornierung', titleEn: 'Cancellation', bodyDe: '', bodyEn: '', required: true },
-  { id: 'reinigung', titleDe: 'Reinigung', titleEn: 'Cleaning', bodyDe: '', bodyEn: '', required: true },
-  { id: 'laerm', titleDe: 'Lärm', titleEn: 'Noise', bodyDe: '', bodyEn: '', required: true },
-  { id: 'rauchverbot', titleDe: 'Rauchverbot', titleEn: 'No smoking', bodyDe: '', bodyEn: '', required: true },
-  { id: 'haftung', titleDe: 'Haftung', titleEn: 'Liability', bodyDe: '', bodyEn: '', required: true },
-  { id: 'schaeden', titleDe: 'Schäden', titleEn: 'Damages', bodyDe: '', bodyEn: '', required: true },
-  { id: 'auf_abbau', titleDe: 'Auf- und Abbau', titleEn: 'Set-up and take-down', bodyDe: '', bodyEn: '', required: true },
-  { id: 'parallelveranstaltungen', titleDe: 'Parallelveranstaltungen', titleEn: 'Parallel events', bodyDe: '', bodyEn: '', required: true },
-  { id: 'kinderfreizeitprojekt', titleDe: 'Kinderfreizeitprojekt', titleEn: "Children's leisure project", bodyDe: '', bodyEn: '', required: true },
-  { id: 'autolieferungen', titleDe: 'Anlieferungen mit dem Auto', titleEn: 'Deliveries by car', bodyDe: '', bodyEn: '', required: true },
-  { id: 'verspaetetes_abschliessen', titleDe: 'Verspätetes Abschließen', titleEn: 'Late closing', bodyDe: '', bodyEn: '', required: true },
-  { id: 'flurnutzung', titleDe: 'Nutzung des Flurs', titleEn: 'Use of the corridor', bodyDe: '', bodyEn: '', required: true },
-  { id: 'hausrecht', titleDe: 'Hausrecht', titleEn: 'House rules', bodyDe: '', bodyEn: '', required: true },
-];
-
-/** Clause ids whose verbatim text is still missing. */
-export function missingClauseBodies(clauses: NvClause[] = NV_CLAUSES, lang: Lang = 'de'): string[] {
-  const key = lang === 'en' ? 'bodyEn' : 'bodyDe';
-  return clauses.filter((c) => c.required !== false && !c[key].trim()).map((c) => c.id);
+export function getClausesForLocation(locationCode: string): NvClause[] {
+  const set = NV_CLAUSE_SETS[locationCode];
+  if (!set) {
+    throw new Error(
+      `No Nutzungsvereinbarung clauses for location "${locationCode}". ` +
+        `Available: ${Object.keys(NV_CLAUSE_SETS).join(', ')}. ` +
+        `Import the location's Word template with scripts/import-nv-docx.py.`,
+    );
+  }
+  return set;
 }
 
-/** Data merged into the document for one booking. */
+export function hasClausesForLocation(locationCode: string): boolean {
+  return Boolean(NV_CLAUSE_SETS[locationCode]);
+}
+
+export function getEmailTemplate(locationCode: string, lang: Lang): string {
+  const tpl = NV_EMAIL_TEMPLATES[locationCode];
+  if (!tpl) throw new Error(`No cover email template for location "${locationCode}"`);
+  return lang === 'en' ? tpl.en : tpl.de;
+}
+
+/** Data merged into the agreement and the cover email for one booking. */
 export interface NvData {
-  contractNumber?: string;
+  locationCode: string;
   locationName: string;
   locationAddress: string;
+  locationPhone?: string | null;
   customer: {
     salutation?: string | null;
     firstName?: string | null;
@@ -111,13 +88,135 @@ export interface NvData {
   startsAt: Date;
   endsAt: Date;
   persons: number | null;
+  eventType?: string | null;
+  /** Free-text extras ("Extra-Wünsche"). */
+  extras?: string | null;
   priceTotal: number | null;
   caution: number | null;
-  /** Payment reference (Verwendungszweck). */
   paymentReference?: string | null;
-  /** Deadline for payment, per the 14-day rule. */
   payBy?: Date | null;
   /** Whether an identity document must be uploaded when signing. */
   needsIdUpload: boolean;
+  /** WE only: whether this party booked first or second ("erste"/"zweite"). */
+  bookingOrder?: 'erste' | 'zweite' | null;
+  /** Link to the online signing page. */
+  signingLink?: string | null;
   lang: Lang;
+}
+
+const dtf = (lang: Lang, opts: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : 'de-DE', {
+    ...opts,
+    timeZone: 'Europe/Berlin',
+  });
+
+export function formatDate(d: Date, lang: Lang): string {
+  return dtf(lang, { dateStyle: 'long' }).format(d);
+}
+
+export function formatTime(d: Date, lang: Lang): string {
+  return dtf(lang, { hour: '2-digit', minute: '2-digit' }).format(d);
+}
+
+export function formatEuro(n: number | null | undefined, lang: Lang): string {
+  if (n === null || n === undefined) return '—';
+  return new Intl.NumberFormat(lang === 'en' ? 'en-GB' : 'de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(n);
+}
+
+/** German salutation inflection, as the Word template's «GeehrteGeehrterGeehrte». */
+function geehrte(salutation?: string | null): string {
+  const s = (salutation || '').trim().toLowerCase();
+  if (s.startsWith('herr')) return 'geehrter';
+  if (s.startsWith('frau')) return 'geehrte';
+  return 'geehrte/r';
+}
+
+/**
+ * The ID-upload paragraph («TxtAusweisDE» / «TxtAusweisEN»), included only when
+ * the event requires an identity document.
+ */
+const ID_TEXT: Record<Lang, string> = {
+  de: 'Zusätzlich benötigen wir für diese Veranstaltung eine Kopie Ihres Ausweises, die Sie beim Unterzeichnen hochladen können.',
+  en: 'For this event we additionally require a copy of your identity document, which you can upload when signing.',
+};
+
+/**
+ * Values for the Word merge fields («Nachname», «Nutzung_Üw», …). Field names
+ * are exactly those in the templates so the extracted text substitutes cleanly.
+ */
+export function mergeFields(data: NvData): Record<string, string> {
+  const lang = data.lang;
+  const c = data.customer;
+  const total =
+    data.priceTotal !== null && data.priceTotal !== undefined
+      ? data.priceTotal + (data.caution ?? 0)
+      : null;
+
+  const payBy = data.payBy
+    ? lang === 'en'
+      ? `by ${formatDate(data.payBy, 'en')}`
+      : `bis zum ${formatDate(data.payBy, 'de')}`
+    : lang === 'en'
+      ? 'immediately'
+      : 'umgehend';
+
+  return {
+    Nachname: c.lastName ?? '',
+    Vorname: c.firstName ?? '',
+    Anrede: c.salutation ?? '',
+    GeehrteGeehrterGeehrte: geehrte(c.salutation),
+    Einrichtung: c.organization ?? '',
+    Anschrift: c.addressFull ?? '',
+    Telefon_nummer: c.phone ?? '',
+    EmailAdresse: c.email ?? '',
+
+    Datum: formatDate(data.startsAt, lang),
+    Zeit_von: formatTime(data.startsAt, lang),
+    Zeit_bis: formatTime(data.endsAt, lang),
+    Art_der_Veranstaltung_: data.eventType ?? '',
+    Anzahl_Personen: data.persons != null ? String(data.persons) : '',
+    Anzahl__Kinder_Erwachsene: data.persons != null ? String(data.persons) : '',
+    'ExtraWünsche': data.extras ?? '',
+
+    'Nutzung_Üw': formatEuro(data.priceTotal, lang),
+    Kaution: formatEuro(data.caution, lang),
+    'Betrag_Summe_Nutzung_Üw__Kaution': formatEuro(total, lang),
+    AutoVZweck: data.paymentReference ?? '',
+    Zahlung_bis: payBy,
+    Zahlung_bis_Englisch: payBy,
+
+    TxtAusweisDE: data.needsIdUpload ? ID_TEXT.de : '',
+    TxtAusweisEN: data.needsIdUpload ? ID_TEXT.en : '',
+    ErstbucherZweite_Bucher: data.bookingOrder ?? '',
+    LinkUnterschreiben: data.signingLink ?? '',
+  };
+}
+
+const FIELD_RE = /«([^»]+)»/g;
+// Captures the character immediately before a field, to repair missing spaces.
+const FIELD_WITH_PREV_RE = /(\S?)«([^»]+)»/g;
+
+/**
+ * Replace «FieldName» placeholders. Unknown fields resolve to an empty string.
+ *
+ * The Word templates are inconsistent about spacing — some fields are written
+ * flush against the preceding word ("in Höhe von«Nutzung_Üw»") while others
+ * already have a space (": «Nutzung_Üw»"). A space is therefore inserted only
+ * when the field directly abuts a non-space character, which fixes the former
+ * without double-spacing the latter.
+ */
+export function applyMergeFields(text: string, fields: Record<string, string>): string {
+  return text.replace(FIELD_WITH_PREV_RE, (_, prev: string, name: string) => {
+    const value = fields[name] ?? '';
+    if (!value) return prev;
+    return prev && !/\s/.test(prev) ? `${prev} ${value}` : `${prev}${value}`;
+  });
+}
+
+/** Merge-field names still present in a string — useful for diagnostics/tests. */
+export function remainingMergeFields(text: string): string[] {
+  return [...text.matchAll(FIELD_RE)].map((m) => m[1]);
 }

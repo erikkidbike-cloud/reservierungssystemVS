@@ -99,23 +99,20 @@ not this one. Listed for completeness.
 
 ## Phase 3 — documents & signing
 
-- ◑ **3.1 Nutzungsvereinbarung PDF** — **pipeline done, clause text outstanding.**
-  `packages/documents` renders the agreement to A4 PDF via headless Chromium:
-  merge fields, facts table, numbered clause list, bank details, ID-upload notice,
-  signature block, DE + EN, all merged values HTML-escaped. Verified by generating
-  real 2-page PDFs.
-  **Remaining — needs the owner's `.docx`:** the 16 clause bodies are empty
-  placeholders. The wording is legally binding and must be copied **verbatim**,
-  not paraphrased. Fill `bodyDe`/`bodyEn` in `NV_CLAUSES` (`src/nv-contract.ts`);
-  the ids are stable so they can be done in any order. Until then
-  `buildNutzungsvereinbarungHtml()` throws unless `{ allowDraft: true }` is passed,
-  which stamps the document "ENTWURF — nicht rechtsverbindlich" and marks each
-  missing clause inline — an unfinished contract cannot be sent by accident.
-  Known constants already captured: bank details (KidBike e.V., Berliner
-  Sparkasse, DE09 1005 0000 0190 8304 17), 14-day cancellation, 100 € / +200 € /
-  max 300 € noise penalties, 50 € damage admin fee, 50 € per started hour late
-  closing, Mo–Sa 14:00–18:00 children's project window.
-  AC: generated PDF matches the Word content (DE + EN).
+- ✅ **3.1 Nutzungsvereinbarung PDF** — **Done for WE and WA.**
+  `packages/documents` renders the agreement to A4 PDF via headless Chromium with
+  the **real** clause wording, extracted mechanically from the owner's Word
+  templates by `scripts/import-nv-docx.py` (never retyped — re-run the importer
+  after a Word edit and review the diff). 16 clauses for WE, 11 for WA, DE + EN,
+  plus both cover emails. Merge fields are filled from the booking; a test asserts
+  no placeholder survives into a rendered document.
+  **Language:** `renderAgreements()` produces one PDF in the language the customer
+  chose when booking; pass `{ languages: ['de','en'] }` for the old always-both
+  behaviour.
+  **Remaining:** WI has no template (phone-only). And see the two source-document
+  issues in `packages/documents/README.md` — the WA Word file's heading styles are
+  broken (worked around, but worth tidying), and **WA charges a 50/70 € deposit
+  online that its agreement never mentions**, which needs a decision.
 - **3.2 Sammel-Nutzungsvereinbarung** — select multiple bookings → one PDF
   (30% Skonto clause, no deposit clause). Replaces the Excel `Sammel-NV`
   paste-tab. Source: `Sammel-Nutzungsvereinbarung VS WE DE.docx`.

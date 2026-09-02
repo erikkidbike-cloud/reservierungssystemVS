@@ -1,11 +1,15 @@
-// Builds the Nutzungsvereinbarung as print-ready HTML. Kept separate from the
-// PDF renderer so the markup can be unit-tested (and previewed in a browser)
-// without launching Chromium.
+// Builds the Nutzungsvereinbarung as print-ready HTML, following the structure
+// of the owner's Word template: letterhead, parties, welcome, the numbered
+// clauses (verbatim, with merge fields filled), confirmation, signature lines,
+// footer. Kept separate from the PDF renderer so it can be unit-tested and
+// previewed in a browser without launching Chromium.
 
 import {
   ORGANISATION,
-  NV_CLAUSES,
-  missingClauseBodies,
+  getClausesForLocation,
+  mergeFields,
+  applyMergeFields,
+  formatDate,
   type NvClause,
   type NvData,
   type Lang,
@@ -20,193 +24,235 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function fmtDateTime(d: Date, lang: Lang): string {
-  return new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : 'de-DE', {
-    dateStyle: 'long',
-    timeStyle: 'short',
-    timeZone: 'Europe/Berlin',
-  }).format(d);
-}
-
-function fmtDate(d: Date, lang: Lang): string {
-  return new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : 'de-DE', {
-    dateStyle: 'long',
-    timeZone: 'Europe/Berlin',
-  }).format(d);
-}
-
-function euro(n: number | null | undefined, lang: Lang): string {
-  if (n === null || n === undefined) return '—';
-  return new Intl.NumberFormat(lang === 'en' ? 'en-GB' : 'de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(n);
-}
-
 const L = {
   de: {
     title: 'Nutzungsvereinbarung',
-    between: 'zwischen',
-    and: 'und',
-    renter: 'Nutzer*in',
-    location: 'Veranstaltungsort',
-    period: 'Nutzungszeit',
-    persons: 'Anzahl Personen',
-    fee: 'Nutzungsentgelt',
-    deposit: 'Kaution',
-    payBy: 'Zahlung bis',
-    reference: 'Verwendungszweck',
-    bank: 'Bankverbindung',
-    idRequired:
-      'Für diese Veranstaltung ist zusätzlich eine Kopie des Ausweises hochzuladen.',
-    signature: 'Unterschrift Nutzer*in',
-    place: 'Ort, Datum',
-    contractNo: 'Vertragsnummer',
-    draftWarning:
-      'ENTWURF — nicht rechtsverbindlich. Es fehlt noch der verbindliche Klauseltext.',
-    missingClause: 'Klauseltext fehlt noch',
+    between: 'zwischen:',
+    and: 'und:',
+    nameLabel: 'Name, Vorname:',
+    orgLabel: 'Einrichtung:',
+    addressLabel: 'Adresse:',
+    phoneLabel: 'Telefon:',
+    emailLabel: 'E-Mail:',
+    welcomeTitle: 'Herzlich willkommen!',
+    confirm:
+      'Hiermit bestätige ich, dass ich die vorstehenden Bestimmungen gelesen habe und damit einverstanden bin.',
+    date: 'Datum',
+    signUser: 'Unterschrift Nutzer*in',
+    signStaff: 'Unterschrift Mitarbeiter*in',
+    paymentMarker: 'Zahlungsdaten',
+    footer: [
+      'Die drei Verkehrsschulen des Bezirks werden von KidBike e.V. in Kooperation mit dem Bezirksamt Friedrichshain-Kreuzberg organisiert.',
+      `${ORGANISATION.name} · ${ORGANISATION.address}`,
+      `E-Mail: ${ORGANISATION.email} · Web: ${ORGANISATION.web}`,
+    ],
   },
   en: {
-    title: 'Terms of Use Agreement',
-    between: 'between',
-    and: 'and',
-    renter: 'User',
-    location: 'Venue',
-    period: 'Period of use',
-    persons: 'Number of people',
-    fee: 'Usage fee',
-    deposit: 'Deposit',
-    payBy: 'Payment due',
-    reference: 'Payment reference',
-    bank: 'Bank details',
-    idRequired:
-      'For this event a copy of an identity document must additionally be uploaded.',
-    signature: 'Signature of user',
-    place: 'Place, date',
-    contractNo: 'Contract number',
-    draftWarning: 'DRAFT — not legally binding. The binding clause text is still missing.',
-    missingClause: 'clause text still missing',
+    title: 'Usage Agreement',
+    between: 'between:',
+    and: 'and:',
+    nameLabel: 'Last name, first name:',
+    orgLabel: 'Institution:',
+    addressLabel: 'Address:',
+    phoneLabel: 'Phone number:',
+    emailLabel: 'E-Mail address:',
+    welcomeTitle: 'Welcome!',
+    confirm: 'I hereby confirm that I have read the above terms and agree to them.',
+    date: 'Date',
+    signUser: 'Signature of user',
+    signStaff: 'Signature of staff member',
+    paymentMarker: 'Payment details',
+    footer: [
+      'The three traffic schools of the district are organised by KidBike e.V. in cooperation with the Friedrichshain-Kreuzberg district office.',
+      `${ORGANISATION.name} · ${ORGANISATION.address}`,
+      `E-Mail: ${ORGANISATION.email} · Web: ${ORGANISATION.web}`,
+    ],
   },
 } as const;
 
 const STYLES = `
-  @page { size: A4; margin: 20mm 18mm 22mm; }
+  @page { size: A4; margin: 18mm 18mm 20mm; }
   * { box-sizing: border-box; }
-  body { font: 10.5pt/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif; color: #111; margin: 0; }
-  h1 { font-size: 17pt; margin: 0 0 2mm; }
-  h2 { font-size: 11pt; margin: 0 0 4mm; font-weight: 600; color: #444; }
-  .draft { border: 1.5pt solid #b45309; background: #fff7ed; color: #7c2d12;
-           padding: 3mm 4mm; margin: 0 0 6mm; font-weight: 600; }
-  table.facts { width: 100%; border-collapse: collapse; margin: 0 0 6mm; }
-  table.facts th, table.facts td { text-align: left; vertical-align: top;
-           padding: 1.6mm 0; border-bottom: 0.4pt solid #ddd; }
-  table.facts th { width: 42mm; font-weight: 600; color: #444; }
+  body { font: 10pt/1.45 "Helvetica Neue", Helvetica, Arial, sans-serif; color: #111; margin: 0; }
+  .head { display: flex; justify-content: space-between; align-items: flex-start;
+          border-bottom: 0.8pt solid #333; padding-bottom: 3mm; margin-bottom: 6mm; }
+  .head h1 { font-size: 16pt; margin: 0; }
+  .head .venue { text-align: right; font-size: 9pt; color: #444; white-space: pre-line; }
+  .parties { margin: 0 0 6mm; }
+  .parties table { border-collapse: collapse; }
+  .parties th { text-align: left; font-weight: 600; padding: 0.8mm 6mm 0.8mm 0;
+                vertical-align: top; color: #333; white-space: nowrap; }
+  .parties td { padding: 0.8mm 0; vertical-align: top; }
+  .lede { margin: 0 0 6mm; }
+  .lede h2 { font-size: 11pt; margin: 0 0 1.5mm; }
   ol.clauses { padding-left: 6mm; margin: 0 0 8mm; }
-  ol.clauses > li { margin: 0 0 3.5mm; }
-  ol.clauses .ct { font-weight: 600; }
-  .todo { color: #b45309; font-style: italic; }
-  .bank { border: 0.4pt solid #ccc; padding: 3mm 4mm; margin: 0 0 8mm; }
-  .sign { margin-top: 14mm; display: flex; gap: 12mm; }
-  .sign > div { flex: 1; border-top: 0.6pt solid #333; padding-top: 2mm;
-           font-size: 9pt; color: #444; }
-  .note { font-size: 9pt; color: #555; }
+  ol.clauses > li { margin: 0 0 4mm; page-break-inside: avoid; }
+  ol.clauses .ct { font-weight: 600; display: block; margin-bottom: 1mm; }
+  ol.clauses p { margin: 0 0 1.5mm; }
+  ol.clauses ul { margin: 0 0 1.5mm; padding-left: 5mm; }
+  table.kv { border-collapse: collapse; margin: 1.5mm 0; }
+  table.kv th { text-align: left; font-weight: 500; color: #333; padding: 0.6mm 6mm 0.6mm 0;
+                vertical-align: top; white-space: nowrap; }
+  table.kv td { padding: 0.6mm 0; vertical-align: top; }
+  .confirm { margin: 8mm 0 0; }
+  .sign { margin-top: 12mm; display: flex; gap: 10mm; }
+  .sign > div { flex: 1; border-top: 0.6pt solid #333; padding-top: 1.5mm;
+                font-size: 8.5pt; color: #444; }
+  .foot { margin-top: 10mm; padding-top: 3mm; border-top: 0.4pt solid #ccc;
+          font-size: 8pt; color: #555; }
+  .foot p { margin: 0 0 1mm; }
 `;
 
-function clauseHtml(clauses: NvClause[], lang: Lang, t: (typeof L)['de']): string {
-  const bodyKey = lang === 'en' ? 'bodyEn' : 'bodyDe';
-  const titleKey = lang === 'en' ? 'titleEn' : 'titleDe';
+/** A clause body line that is a label for the value on the next line. */
+const isLabel = (s: string) => /:$/.test(s);
 
-  return clauses
-    .map((c) => {
-      const body = c[bodyKey].trim();
-      const rendered = body
-        ? escapeHtml(body)
-        : `<span class="todo">[${escapeHtml(t.missingClause)}: ${escapeHtml(c.id)}]</span>`;
-      return `<li><span class="ct">${escapeHtml(c[titleKey])}.</span> ${rendered}</li>`;
-    })
-    .join('\n');
+/**
+ * Render one clause body.
+ *
+ * The Word tables flatten to runs of lines, so two shapes get rebuilt here:
+ *   - a run of "Label:" lines followed by an equal number of value lines
+ *     (the booking facts in clause 1);
+ *   - everything after a "Zahlungsdaten" / "Payment details" marker, which is
+ *     alternating label/value lines (the payment block in clause 2).
+ * Anything else renders as paragraphs, with "- " lines grouped into a list.
+ */
+export function renderClauseBody(body: string, lang: Lang): string {
+  const t = L[lang];
+  const lines = body.split('\n').map((l) => l.trim()).filter(Boolean);
+  const out: string[] = [];
+  let i = 0;
+
+  const kvTable = (pairs: Array<[string, string]>) =>
+    `<table class="kv">${pairs
+      .map(
+        ([k, v]) =>
+          `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`,
+      )
+      .join('')}</table>`;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Payment block: alternating label / value to the end.
+    if (line === t.paymentMarker) {
+      const rest = lines.slice(i + 1);
+      const pairs: Array<[string, string]> = [];
+      for (let j = 0; j + 1 < rest.length; j += 2) {
+        pairs.push([rest[j], rest[j + 1]]);
+      }
+      out.push(`<p class="ct">${escapeHtml(line)}</p>`);
+      if (pairs.length) out.push(kvTable(pairs));
+      break;
+    }
+
+    // Label run followed by an equal-length value run.
+    if (isLabel(line)) {
+      let n = 0;
+      while (i + n < lines.length && isLabel(lines[i + n])) n++;
+      const values = lines.slice(i + n, i + n * 2);
+      if (n >= 2 && values.length === n && !values.some(isLabel)) {
+        out.push(
+          kvTable(
+            Array.from({ length: n }, (_, k) => [lines[i + k], values[k]] as [string, string]),
+          ),
+        );
+        i += n * 2;
+        continue;
+      }
+    }
+
+    // Bullet list.
+    if (line.startsWith('- ')) {
+      const items: string[] = [];
+      while (i < lines.length && lines[i].startsWith('- ')) {
+        items.push(lines[i].slice(2).trim());
+        i++;
+      }
+      out.push(`<ul>${items.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>`);
+      continue;
+    }
+
+    out.push(`<p>${escapeHtml(line)}</p>`);
+    i++;
+  }
+
+  return out.join('\n');
 }
 
 export interface RenderOptions {
+  /** Override the clause set (tests, or a location not yet imported). */
   clauses?: NvClause[];
-  /** Render even though clause bodies are missing (marks the doc as a draft). */
-  allowDraft?: boolean;
+  /** Override the document language; defaults to data.lang. */
+  lang?: Lang;
 }
 
-/**
- * Build the agreement HTML. Throws if clause text is missing unless
- * `allowDraft` is set — in which case the document is clearly stamped DRAFT so
- * an unfinished contract cannot be mistaken for a binding one.
- */
+/** Build the agreement HTML for one language. */
 export function buildNutzungsvereinbarungHtml(data: NvData, opts: RenderOptions = {}): string {
-  const clauses = opts.clauses ?? NV_CLAUSES;
-  const lang = data.lang;
+  const lang = opts.lang ?? data.lang;
   const t = L[lang];
-  const missing = missingClauseBodies(clauses, lang);
-
-  if (missing.length > 0 && !opts.allowDraft) {
-    throw new Error(
-      `Refusing to render Nutzungsvereinbarung: clause text missing for [${missing.join(', ')}]. ` +
-        `Copy the verbatim wording from the Word template, or pass { allowDraft: true } for a preview.`,
-    );
-  }
+  const clauses = opts.clauses ?? getClausesForLocation(data.locationCode);
+  const fields = mergeFields({ ...data, lang });
 
   const c = data.customer;
-  const renterName =
-    [c.salutation, c.firstName, c.lastName].filter(Boolean).join(' ').trim() || '—';
+  const name = [c.lastName, c.firstName].filter(Boolean).join(', ') || '—';
 
-  const rows: Array<[string, string]> = [
-    [t.renter, escapeHtml(renterName)],
-  ];
-  if (c.organization) rows.push(['', escapeHtml(c.organization)]);
-  if (c.addressFull) rows.push(['', escapeHtml(c.addressFull)]);
-  rows.push([t.location, `${escapeHtml(data.locationName)}, ${escapeHtml(data.locationAddress)}`]);
-  rows.push([
-    t.period,
-    `${escapeHtml(fmtDateTime(data.startsAt, lang))} – ${escapeHtml(fmtDateTime(data.endsAt, lang))}`,
-  ]);
-  rows.push([t.persons, data.persons != null ? String(data.persons) : '—']);
-  rows.push([t.fee, escapeHtml(euro(data.priceTotal, lang))]);
-  if (data.caution != null) rows.push([t.deposit, escapeHtml(euro(data.caution, lang))]);
-  if (data.payBy) rows.push([t.payBy, escapeHtml(fmtDate(data.payBy, lang))]);
-  if (data.paymentReference) rows.push([t.reference, escapeHtml(data.paymentReference)]);
+  const partyRows: Array<[string, string]> = [[t.nameLabel, name]];
+  if (c.organization) partyRows.push([t.orgLabel, c.organization]);
+  if (c.addressFull) partyRows.push([t.addressLabel, c.addressFull]);
+  if (c.phone) partyRows.push([t.phoneLabel, c.phone]);
+  if (c.email) partyRows.push([t.emailLabel, c.email]);
 
-  const factRows = rows
-    .map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${v}</td></tr>`)
+  const clausesHtml = clauses
+    .map((cl) => {
+      const title = lang === 'en' ? cl.titleEn : cl.titleDe;
+      const body = applyMergeFields(lang === 'en' ? cl.bodyEn : cl.bodyDe, fields);
+      return `<li><span class="ct">${escapeHtml(title)}</span>\n${renderClauseBody(body, lang)}</li>`;
+    })
     .join('\n');
+
+  const venue = `${data.locationName}\n${data.locationAddress}${
+    data.locationPhone ? `\nTel.: ${data.locationPhone}` : ''
+  }`;
 
   return `<!doctype html>
 <html lang="${lang}">
 <head>
 <meta charset="utf-8">
-<title>${escapeHtml(t.title)}${data.contractNumber ? ` ${escapeHtml(data.contractNumber)}` : ''}</title>
+<title>${escapeHtml(t.title)} — ${escapeHtml(data.locationName)}</title>
 <style>${STYLES}</style>
 </head>
 <body>
-${missing.length > 0 ? `<div class="draft">${escapeHtml(t.draftWarning)}</div>` : ''}
-<h1>${escapeHtml(t.title)}</h1>
-<h2>${escapeHtml(t.between)} ${escapeHtml(ORGANISATION.name)} ${escapeHtml(t.and)} ${escapeHtml(renterName)}</h2>
-${data.contractNumber ? `<p class="note">${escapeHtml(t.contractNo)}: ${escapeHtml(data.contractNumber)}</p>` : ''}
-
-<table class="facts">
-${factRows}
-</table>
-
-<ol class="clauses">
-${clauseHtml(clauses, lang, t)}
-</ol>
-
-<div class="bank">
-  <strong>${escapeHtml(t.bank)}</strong><br>
-  ${escapeHtml(ORGANISATION.name)} · ${escapeHtml(ORGANISATION.bank)}<br>
-  IBAN ${escapeHtml(ORGANISATION.iban)}
+<div class="head">
+  <h1>${escapeHtml(t.title)}</h1>
+  <div class="venue">${escapeHtml(venue)}</div>
 </div>
 
-${data.needsIdUpload ? `<p class="note"><strong>${escapeHtml(t.idRequired)}</strong></p>` : ''}
+<div class="parties">
+  <p><strong>${escapeHtml(t.between)}</strong> ${escapeHtml(ORGANISATION.name)}, ${escapeHtml(ORGANISATION.address)}</p>
+  <p><strong>${escapeHtml(t.and)}</strong></p>
+  <table>
+    ${partyRows.map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join('\n    ')}
+  </table>
+</div>
+
+<div class="lede">
+  <h2>${escapeHtml(t.welcomeTitle)}</h2>
+</div>
+
+<ol class="clauses">
+${clausesHtml}
+</ol>
+
+<p class="confirm">${escapeHtml(t.confirm)}</p>
 
 <div class="sign">
-  <div>${escapeHtml(t.place)}</div>
-  <div>${escapeHtml(t.signature)}</div>
+  <div>Berlin, ${escapeHtml(formatDate(new Date(), lang))} — ${escapeHtml(t.date)}</div>
+  <div>${escapeHtml(t.signUser)}</div>
+  <div>${escapeHtml(t.signStaff)}</div>
+</div>
+
+<div class="foot">
+${t.footer.map((f) => `  <p>${escapeHtml(f)}</p>`).join('\n')}
 </div>
 </body>
 </html>`;

@@ -24,6 +24,22 @@
 7. *(Frauenprojekt vs. Frauengefängnis)* — two different projects, more may come.
    Modelled as the `projects` table.
 
+## Raised by importing the Nutzungsvereinbarung templates
+
+18. **WA charges a deposit online that its contract never mentions.** The pricing
+    engine takes a Wassertorplatz Kaution of 50 € (≤45 people) / 70 € (≥46), but
+    the word "Kaution" does not appear anywhere in the Wassertorplatz
+    Nutzungsvereinbarung — it has no deposit clause at all (Weinstraße mentions it
+    nine times). Either the clause is missing from the contract or the online
+    deposit should not be charged. **Needs a decision before WA agreements go out.**
+19. **The WA Word template has structural defects.** Clause 9's body text carries
+    the Heading 2 style; the "10. Parallelveranstaltungen" / "10. Parallel Events"
+    headings sit inside the previous clause's paragraph rather than being their own
+    heading; and the English section numbers two different clauses "10.". The
+    importer works around all of it, but the Word file is worth tidying.
+20. **WI has no Nutzungsvereinbarung template.** Consistent with it being
+    phone-only, but confirm no agreement is needed there.
+
 ## Still to confirm (do not finalise these without the owner)
 
 7. **WE Kaution rules (⚠️ Verify).** The engine reproduces the current code
