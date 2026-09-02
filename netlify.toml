@@ -1,0 +1,22 @@
+# Netlify build config for apps/web — the NEW booking system (Next.js), not to
+# be confused with reference/legacy-kidbike-json/netlify.toml, which is a
+# read-only copy of the OLD system kept for reference and deploys nowhere from
+# this repo.
+#
+# No "base" directory is set: apps/web depends on the sibling workspace
+# packages (@vs/pricing, @vs/domain, @vs/documents) via npm workspaces, which
+# only resolve correctly when `npm install` runs at the repo root (where the
+# lockfile and the "workspaces" field live) — not inside apps/web alone.
+# Netlify clones the whole repo and starts in the root by default, so `command`
+# below does exactly that, then builds only the apps/web package.
+#
+# Netlify auto-detects Next.js and applies its own Next.js Runtime (which
+# handles server components, server actions, middleware and API routes as
+# serverless/edge functions) — no plugin needs to be declared here.
+
+[build]
+  command = "npm install && npm run build --workspace=apps/web"
+  publish = "apps/web/.next"
+
+[build.environment]
+  NODE_VERSION = "22"

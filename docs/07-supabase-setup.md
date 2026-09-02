@@ -98,19 +98,20 @@ almost no setup:
 1. In Supabase: **Authentication → Providers** — **Email** is already enabled
    by default on every new project (this is what handles magic links; no
    toggle needed here).
-2. **Authentication → URL Configuration**:
-   - **Site URL**: `http://localhost:3000` while developing locally; change it
-     to your real deployed URL (e.g. `https://vs.kidbike.de`) once `apps/web`
-     is on Netlify.
-   - **Redirect URLs**: add `http://localhost:3000/auth/callback`, and later
-     the production equivalent (`https://<your-site>/auth/callback`). Supabase
-     refuses to redirect anywhere not on this list — a magic link will look
-     like it silently fails if this step is skipped.
-3. **Set `NEXT_PUBLIC_SITE_URL`** in `apps/web/.env.local` (and later in
-   Netlify) once you have a real deployed URL — see `.env.example`. It's not
-   strictly required for local dev (the app falls back to the request's own
-   origin), but is worth setting from the start so you don't hit a surprise
-   later behind Netlify's proxy.
+2. **Authentication → URL Configuration** — do this step **after** step 5 below
+   if you're deploying straight to Netlify rather than running locally first,
+   since you need the real Netlify URL to fill it in:
+   - **Site URL**: your app's real URL — `https://<your-site>.netlify.app`
+     (or `http://localhost:3000` if you are running locally).
+   - **Redirect URLs**: add `https://<your-site>.netlify.app/auth/callback`
+     (and `http://localhost:3000/auth/callback` too, if you ever also run
+     locally). Supabase refuses to redirect anywhere not on this list — a
+     magic link will look like it silently fails if this step is skipped.
+3. **Set `NEXT_PUBLIC_SITE_URL`** to that same real URL, alongside your other
+   environment variables (Netlify, or `apps/web/.env.local` for local dev — see
+   `.env.example`). Not strictly required for local dev (the app falls back to
+   the request's own origin), but worth setting from the start once deployed so
+   you don't hit a surprise later behind Netlify's proxy.
 4. **Watch the email rate limit.** Supabase's default project uses its own
    shared test mail sender for auth emails, capped very low (a handful per
    hour) — fine for you alone testing, but ~5–30 staff logging in around the
@@ -146,25 +147,62 @@ The service role key **bypasses every RLS policy** — treat it like a root
 password. It belongs only in server-side environment variables, never in
 anything that reaches the browser, and never committed to git.
 
-## 5. Configure the app
+## 5. Deploy it
 
-Local development:
+You don't need a local setup at all — a Git-connected Netlify deploy needs no
+terminal on your machine beyond what's already been done for you. Local dev
+(further below) is there if you ever want it, but skip it if you'd rather not.
+
+### Option A — Netlify, connected to GitHub (recommended, zero terminal)
+
+A `netlify.toml` is already committed at the repo root, so Netlify needs no
+manual build configuration — connecting the repo is enough.
+
+1. [app.netlify.com](https://app.netlify.com) → **Add new site → Import an
+   existing project** → **GitHub** → authorise Netlify if asked → pick
+   `erikkidbike-cloud/reservierungssystemVS`.
+2. Branch to deploy: `claude/booking-system-architecture-neo3jo` (or `main`,
+   once this is merged). Netlify should auto-detect the build settings from
+   `netlify.toml` — if it shows a build command/publish directory field
+   pre-filled with something different, leave the `netlify.toml` values as the
+   source of truth rather than typing your own.
+3. Before clicking deploy (or right after, then redeploy) — **Site
+   configuration → Environment variables** → add:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `TZ` = `Europe/Berlin` — matters more than it looks: the closing-hour and
+     hold-expiry rules are wall-clock rules evaluated with local date
+     arithmetic, ported from the original browser code — the server has to
+     actually run in Berlin time or those rules silently shift.
+   - `NEXT_PUBLIC_SITE_URL` — leave this one for after the first deploy, once
+     you know the real URL (step below).
+4. **Deploy site.** Netlify gives you a URL like
+   `https://<random-name>.netlify.app` (you can rename it, or attach a custom
+   domain, later — neither changes anything below except which URL you use).
+5. Go back and set `NEXT_PUBLIC_SITE_URL` to that URL, then **trigger a
+   redeploy** (Deploys → Trigger deploy) so it picks up the new variable.
+6. Now go do the Supabase **Authentication → URL Configuration** step from §3
+   above, using this same real URL — magic links won't work until that's set.
+
+From here, every future push to the connected branch redeploys automatically —
+you don't come back to Netlify's UI again unless you're changing environment
+variables.
+
+### Option B — local development (optional, for later)
+
+Only if you want to run the app on your own machine — e.g. to try a change
+yourself before asking me to make it:
 ```bash
 cd apps/web
 cp .env.example .env.local
-# fill in the three keys above, and keep TZ=Europe/Berlin
+# fill in the same variables as Option A, with http://localhost:3000 for
+# NEXT_PUBLIC_SITE_URL (or leave it unset — see .env.example)
 npm install
 npm run dev
 ```
-
-Netlify (once you're ready to deploy `apps/web` there): **Site settings →
-Environment variables**, add the same variables
-(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`, `TZ=Europe/Berlin`, `NEXT_PUBLIC_SITE_URL`). The
-`TZ` one matters more than it looks: the closing-hour and hold-expiry rules are
-wall-clock rules evaluated with local date arithmetic, ported from the original
-browser code — the server process has to actually run in Berlin time or those
-rules silently shift.
+Then add `http://localhost:3000/auth/callback` to Supabase's Redirect URLs
+alongside the production one.
 
 ## 6. Verify it end to end
 
