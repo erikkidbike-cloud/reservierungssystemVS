@@ -48,8 +48,9 @@ docs/                         Canonical specification (read these first)
   06-handoff-backlog.md       Phased, scoped tasks for follow-up models
 
 supabase/
-  migrations/                 Postgres schema, constraints, RLS, views
+  migrations/                 Postgres schema, constraints, RLS, views, functions
   seed/                       Locations + tariffs seeded with exact numbers
+  test/                       Local verification harness (no Supabase needed)
 
 packages/
   pricing/                    The pricing engine (pure TS, fully tested)
@@ -61,14 +62,25 @@ reference/
                               pricing constants and terms text.
 ```
 
-## Running the pricing engine tests
+## Running the tests
 
-No install required (Node 22 strips types and runs `node --test` natively):
+**TypeScript** (pricing engine + state machine) — no install required, Node 22
+strips types and runs `node --test` natively:
 
 ```bash
-cd packages/pricing
-node --test --experimental-strip-types
+npm test          # from the repo root: runs every workspace (54 tests)
 ```
+
+**Database** (schema, RLS, RPC, triggers) — needs a local PostgreSQL 16 binary
+set, but no Supabase project:
+
+```bash
+./supabase/test/run-tests.sh    # throwaway cluster, 36 assertions
+```
+
+The DB harness applies a Supabase shim, every migration and the seed, then
+asserts the overlap constraint, the booking-request guards, hold expiry, the
+audit trigger and that `public_availability` leaks no personal data.
 
 ## For the next contributor (Opus / Sonnet / Haiku)
 

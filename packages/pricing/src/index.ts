@@ -11,6 +11,7 @@ export {
   WA_STANDARD,
   DEFAULT_TARIFFS,
 } from './config.ts';
+export { parseTariffConfig, TariffConfigError } from './tariff-loader.ts';
 export {
   overlaps,
   minStartDate,

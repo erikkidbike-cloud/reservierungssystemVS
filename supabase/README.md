@@ -18,9 +18,27 @@ Order matters:
 | `0004_constraints_indexes.sql` | **overlap exclusion constraint** + indexes |
 | `0005_rls.sql` | RLS helpers + policies |
 | `0006_views.sql` | role-scoped views (`public_availability`, `bookings_staff`, `caretaker_tasks`) |
+| `0007_functions.sql` | `create_booking_request()`, `expire_holds()`, profile provisioning, status audit |
 | `seed/seed.sql` | locations, projects, standard tariffs (exact prices) |
 
 Design rationale: `docs/02-data-model.md`. Security model: `docs/03-roles-and-rls.md`.
+
+## Verifying without a Supabase project
+
+```bash
+./supabase/test/run-tests.sh
+```
+
+Spins up a throwaway PostgreSQL 16 cluster (unix socket only, no TCP, so it
+cannot collide with anything), applies a small Supabase shim
+(`test/00_supabase_shim.sql` — the `auth` schema, `auth.uid()`, and the
+`anon`/`authenticated`/`service_role` roles), then every migration, the seed, and
+the assertion suite in `test/01_functions.test.sql` (36 assertions). Any failed
+assertion aborts the script non-zero.
+
+The suite deliberately runs with `set timezone = 'UTC'` to prove the wall-clock
+rules (22:00 closing, business-day hold expiry) are evaluated in `Europe/Berlin`
+via `app_timezone()` and do not depend on the session's timezone.
 
 ## The one constraint to understand
 

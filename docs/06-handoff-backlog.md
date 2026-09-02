@@ -30,19 +30,34 @@ not this one. Listed for completeness.
 
 ## Phase 1 — database + internal console (core)
 
+> **Done so far:** 1.2, 1.3 and the SQL half of 1.4 are implemented and verified.
+> The whole schema, the RPC and the triggers are exercised by a local Postgres
+> harness — run `./supabase/test/run-tests.sh` (36 assertions, no Supabase
+> project needed). What remains in Phase 1 is provisioning (1.1), the Entra ID
+> provider config (1.4), and the Next.js console (1.5–1.8).
+
 - **1.1 Provision Supabase** (EU/Frankfurt). Apply `supabase/migrations/*` in
   order, then `supabase/seed/seed.sql`. AC: `select * from public_availability`
-  works; `select computed price` via the RPC returns sane numbers.
-- **1.2 Wire the pricing engine to the DB config.** Load `tariffs.config` and
-  pass it to `packages/pricing`'s `computePrice`. AC: engine output for seeded
-  configs equals the hard-coded config output (a test asserts this).
-- **1.3 `request_booking()` RPC** — implement the SECURITY DEFINER function
-  sketched in `docs/03-roles-and-rls.md`: validate (reuse the engine's
-  `validateRequest`), compute price, upsert customer, insert booking, write
-  `booking_events`. AC: a double-submit of the same slot fails on the exclusion
-  constraint with a clean error.
-- **1.4 Microsoft / Entra ID auth** in Supabase; on first login create a
-  `profiles` row (default role `staff`). AC: staff log in; admin can set roles.
+  works. *(Blocked on account access — everything it applies is already verified
+  locally by `supabase/test/run-tests.sh`.)*
+- ~~**1.2 Wire the pricing engine to the DB config.**~~ ✅ **Done** —
+  `packages/pricing/src/tariff-loader.ts` (`parseTariffConfig`) validates an
+  untrusted `tariffs.config` value and normalises tier ordering. Tests assert a
+  DB-loaded config prices identically to the in-code config.
+- ~~**1.3 `create_booking_request()`**~~ ✅ **Done** —
+  `supabase/migrations/0007_functions.sql`. Validates location/bookability,
+  range, 30-min minimum, 7-day lead (public only), and the closing rule in
+  `Europe/Berlin`; upserts the customer; inserts the hold with a business-day
+  expiry; logs a `booking_event`. A concurrent duplicate hits the exclusion
+  constraint and is re-raised as `slot_taken`. Note the deliberate design
+  change from the original sketch: it is **service-role only** and takes an
+  already-computed price, because pricing must have exactly one implementation
+  (`packages/pricing`) — see `docs/03-roles-and-rls.md`.
+- **1.4 Microsoft / Entra ID auth.** ◑ **Half done** — the DB side is
+  implemented: `handle_new_user()` + the `on_auth_user_created` trigger create a
+  `profiles` row (default role `staff`) on first login. **Remaining:** configure
+  the Microsoft/Entra provider in the Supabase dashboard and build the admin UI
+  for assigning roles and `user_locations`. AC: staff log in; admin can set roles.
 - **1.5 Internal console shell** (Next.js `/admin`): auth guard, role-aware nav.
 - **1.6 Booking list + calendar** (internal), querying the role-appropriate view.
   AC: staff never receive contact/financial columns (verify in the network tab).
@@ -98,8 +113,10 @@ not this one. Listed for completeness.
   "Automatische Mail Ziethen" flow. AC: caretaker login shows only their tasks.
 - **4.4 Deposit-return workflow** — on `completed`, a `return_deposit` task with a
   14-day deadline when a deposit was held.
-- **4.5 Cron: expire holds** — hourly, `requested` past `hold_expires_at` →
-  `expired`.
+- ~~**4.5 Cron: expire holds**~~ ✅ **Done (function)** — `expire_holds()` in
+  `0007_functions.sql` flips lapsed `requested` holds to `expired` and logs each
+  one, returning the count. **Remaining:** schedule it hourly (pg_cron, or a
+  Supabase scheduled Edge Function).
 
 ## Phase 5 — nice-to-haves
 

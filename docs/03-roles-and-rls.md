@@ -47,9 +47,9 @@ Kept `STABLE` and schema-qualified to avoid recursive RLS evaluation.
 - **bookings**: admin & finance → all rows. location_manager → rows where
   `has_location(location_id)`, full access. staff → **read only** and **only via
   the `bookings_staff` view** (no direct table select granted). Public form
-  inserts go through the `request_booking()` RPC (SECURITY DEFINER), which
-  validates and inserts with `status='requested'` — there is no open INSERT
-  policy for `anon` on the table itself.
+  inserts go through `create_booking_request()` (SECURITY DEFINER, service-role
+  only), which validates and inserts with `status='requested'` — there is no
+  INSERT policy for `anon` on the table at all.
 - **customer_experiences**: admin, location_manager, finance only.
 - **payments / documents**: admin + finance (payments), admin + location_manager
   (documents, scoped to location).
@@ -58,18 +58,43 @@ Kept `STABLE` and schema-qualified to avoid recursive RLS evaluation.
 - **booking_events**: insert by the app (via triggers/RPC); read by admin +
   location_manager (their locations).
 
-## Why RPC for public submission
+## Why a function for public submission
 
-Giving `anon` a direct `INSERT` on `bookings` is hard to constrain safely (they
-could set any status, any price). Instead `request_booking()`:
-1. runs server-side validation (lead time, duration, closing rule, overlap),
-2. computes price server-side (never trusts the client's number),
-3. creates/links the customer,
-4. inserts the booking as `requested` with a computed `hold_expires_at`,
-5. writes a `booking_events` row and returns a minimal confirmation.
+*Implemented in `supabase/migrations/0007_functions.sql` as
+`create_booking_request()`; covered by `supabase/test/01_functions.test.sql`.*
 
-This is also where the server-side overlap check + exclusion constraint make a
-double-submit impossible.
+Giving `anon` a direct `INSERT` on `bookings` is hard to constrain safely — they
+could set any status, any price. Instead the public form posts to a **trusted
+Next.js server route**, which:
+
+1. computes the price with `@vs/pricing` (the client's number is never trusted), then
+2. calls `create_booking_request()` using the **service role**.
+
+The function itself is `SECURITY DEFINER` with `EXECUTE` **revoked from `anon`
+and `authenticated`** and granted only to `service_role`. It:
+
+1. resolves the location and refuses a non-`online` one for public requests,
+2. re-validates times server-side (range, 30-min minimum, 7-day lead, closing
+   rule) — so the rules hold for internal entry too, not just in the browser,
+3. upserts the customer (deduplicating on email),
+4. inserts the booking as `requested` with a business-day `hold_expires_at`,
+5. writes a `booking_events` row and returns the booking.
+
+It raises machine-readable messages the app maps to user-facing text:
+`location_not_found`, `not_online_bookable`, `invalid_range`, `too_short`,
+`too_soon`, `closing_violation`, `slot_taken`.
+
+**Pricing is deliberately not computed in SQL.** The algorithm has exactly one
+implementation (`packages/pricing`), shared by the public form and the internal
+console. Re-deriving prices in PL/pgSQL would recreate the JS-vs-Excel drift this
+rebuild exists to eliminate.
+
+Concurrency: two simultaneous requests for one slot cannot both succeed — the
+second hits the `bookings_no_overlap` exclusion constraint, which the function
+catches and re-raises as `slot_taken`.
+
+Wall-clock rules (closing hour, business days) are evaluated in `Europe/Berlin`
+via `app_timezone()`, so they do not depend on the database session's timezone.
 
 ## Column security: views vs. GRANTs
 
