@@ -77,7 +77,7 @@ npm test          # from the repo root: runs every workspace (54 tests)
 set, but no Supabase project:
 
 ```bash
-./supabase/test/run-tests.sh    # throwaway cluster, 36 assertions
+./supabase/test/run-tests.sh    # throwaway cluster, 52 assertions
 ```
 
 The DB harness applies a Supabase shim, every migration and the seed, then

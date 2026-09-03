@@ -37,7 +37,16 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    supabase/migrations/0006_views.sql
    supabase/migrations/0007_functions.sql
    supabase/migrations/0008_agreements.sql
+   supabase/migrations/0009_grants.sql
    ```
+
+   **`0009` matters even though it looks like boilerplate.** Without it, the
+   app's `service_role` key — which is what the server-side code uses for
+   almost everything — can't actually read any table, and every page fails
+   with `permission denied for table locations` (or whichever table it tried
+   first) despite the key being completely correct. This bit a real deploy of
+   this exact app; if you're fixing that error on a project that's missing
+   `0009`, running it now (and redeploying) is the fix.
 
    The order matters — each one builds on the last (e.g. the overlap
    constraint in `0004` needs the `bookings` table `0003` creates). Do **not**
@@ -81,7 +90,7 @@ supabase db execute --file supabase/seed/nv_clauses.sql
 
 Either option leaves the database in the identical state — this repo's local
 test harness (`./supabase/test/run-tests.sh`) applies these same files in this
-same order against a throwaway Postgres and passes 48 assertions, so you're not
+same order against a throwaway Postgres and passes 52 assertions, so you're not
 the first one to run this sequence.
 
 ## 3. Set up magic-link login (for now)

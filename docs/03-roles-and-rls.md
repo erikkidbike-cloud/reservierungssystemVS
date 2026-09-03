@@ -112,25 +112,40 @@ Two mechanisms, used together:
 Where a role needs the base table but not every column (rare), Postgres
 column-level `GRANT` can supplement — but prefer views for clarity.
 
-## A gap in the local test harness, for honesty's sake
+## Base-table GRANTs: a real bug, not a precaution
 
-On a real Supabase project, creating a table auto-grants base privileges
+An earlier version of this document claimed that creating a table on a real
+Supabase project auto-grants base privileges
 (`SELECT`/`INSERT`/`UPDATE`/`DELETE`) to `anon`/`authenticated`/`service_role`
-project-wide; RLS is then the *only* thing restricting rows. `supabase/test/`'s
-throwaway Postgres cluster does not replicate that project-wide default — tables
-here start with no privileges for those roles until a migration grants them.
+project-wide, with RLS left as the only real restriction. **That claim was
+wrong.** The first real deploy hit `permission denied for table locations` —
+using a genuine, correctly-configured `service_role` key — because GRANT and
+Row Level Security are independent Postgres layers: `BYPASSRLS` (what makes
+`service_role` special) skips only the RLS layer, not the ordinary privilege
+check. A table created by running plain SQL (as every migration here does, via
+the SQL Editor or the CLI) does not automatically become selectable by any
+role, `service_role` included, without an explicit `GRANT`.
 
-In practice this hasn't been a problem: `01_functions.test.sql` runs entirely as
-the `postgres` superuser (which bypasses RLS by table ownership, same as
-`service_role` in production) and exercises security through the
-`SECURITY DEFINER` functions and the column-restricted views instead, which
-*are* real grants (0006) — so those guarantees are genuinely tested. But it does
-mean an RLS *policy* on a base table, by itself, was never proven to actually
-hold against a non-superuser role until `agreement_clauses` — which the
-`0008` migration grants explicitly and `02_agreements.test.sql` exercises with a
-real `SET ROLE authenticated` + `auth.uid()` switch (anon refused outright,
+`supabase/migrations/0009_grants.sql` fixes this: explicit `GRANT` for
+`authenticated` on every RLS-protected table, unrestricted `GRANT` for
+`service_role`, and `ALTER DEFAULT PRIVILEGES` so a table added by a *future*
+migration inherits both automatically — the bug this fixes is exactly
+"someone adds a table and forgets it needs a grant," so the fix has to prevent
+its own recurrence, not just patch the tables that existed when it was found.
+`anon` gets nothing here by design: it only ever reaches data through the
+public views (0006) or `create_booking_request()` running as `service_role`
+(0007), never a base table directly.
+
+Why the local test harness didn't catch this before `0009` existed:
+`01_functions.test.sql` and most of `02_agreements.test.sql` run largely as the
+`postgres` superuser, which bypasses ordinary GRANT checks by table ownership —
+the exact same way `service_role`'s `BYPASSRLS` bypasses RLS. A missing GRANT
+was invisible to a test suite that never stopped being the table owner.
+`supabase/test/03_grants.test.sql` is the fix for *that*: it switches to
+`service_role`/`authenticated` via `SET ROLE` and asserts every base table is
+reachable — including a table created after `0009` runs, to prove the default
+privileges actually take effect rather than merely reading correctly. Combined
+with `02_agreements.test.sql`'s role-switch tests (anon refused outright,
 staff's write silently matches zero rows, a location_manager scoped to one
-location can't touch another's). Extending that same explicit-grant-plus-
-role-switch treatment to the older tables (`bookings`, `customers`, …) is a
-worthwhile follow-up, not done here to keep this change scoped to what
-Nutzungsvereinbarung-editing needed.
+location can't touch another's), base-table access is now proven against a
+non-superuser identity, not just checked for shape.

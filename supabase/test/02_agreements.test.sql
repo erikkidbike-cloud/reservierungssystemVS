@@ -3,15 +3,14 @@
 -- 01_functions.test.sql, which runs entirely as the postgres superuser and so
 -- never actually exercises a policy — a real role-switch test proving the RLS
 -- policy on agreement_clauses holds for anon, staff, a scoped location_manager,
--- and admin. See run-tests.sh and the grant comment in 0008 for why this table
--- needed an explicit GRANT to `authenticated` that the rest of the schema does
--- not have locally (a real Supabase project grants it project-wide by default).
+-- and admin.
 --
--- The persona blocks below deliberately never query `locations` under the
--- `authenticated` role: this local shim, unlike a real Supabase project, does
--- not grant base-table SELECT on `locations` to authenticated, so a lookup by
--- code would fail on a privilege the test isn't trying to check. Location ids
--- are resolved once as postgres into a temp table instead.
+-- The persona blocks below resolve location ids as postgres into a temp table
+-- rather than looking them up by code under the `authenticated` role — not
+-- because `authenticated` lacks a grant on `locations` (0009_grants.sql now
+-- covers that; see 03_grants.test.sql for the dedicated regression test), but
+-- to keep this file focused on agreement_clauses's own policy rather than
+-- depending on locations' RLS behaving a particular way too.
 
 \set ON_ERROR_STOP on
 

@@ -32,7 +32,7 @@ not this one. Listed for completeness.
 
 > **Done so far:** 1.2, 1.3 and the SQL half of 1.4 are implemented and verified.
 > The whole schema, the RPC and the triggers are exercised by a local Postgres
-> harness — run `./supabase/test/run-tests.sh` (36 assertions, no Supabase
+> harness — run `./supabase/test/run-tests.sh` (52 assertions, no Supabase
 > project needed). What remains in Phase 1 is provisioning (1.1), the Entra ID
 > provider config (1.4), and the Next.js console (1.5–1.8).
 
