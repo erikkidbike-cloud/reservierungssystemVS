@@ -51,6 +51,29 @@ export function canManageTariffs(role: AppRole | undefined): boolean {
   return role === 'admin';
 }
 
+/** Assigning roles and locations is admin-only — it is how access itself is granted. */
+export function canManageUsers(role: AppRole | undefined): boolean {
+  return role === 'admin';
+}
+
+/** All assignable roles, for the user-admin dropdown. */
+export const ALL_ROLES: AppRole[] = [
+  'admin',
+  'location_manager',
+  'staff',
+  'finance',
+  'hausmeister',
+];
+
+/** German labels for the roles, used wherever a role is shown to staff. */
+export const ROLE_LABEL: Record<AppRole, string> = {
+  admin: 'Administrator',
+  location_manager: 'Standortleitung',
+  staff: 'Mitarbeiter*in',
+  finance: 'Finanzen',
+  hausmeister: 'Hausmeister',
+};
+
 /**
  * Editing the Nutzungsvereinbarung text is scoped like bookings (admin
  * everywhere, location_manager for their own location) rather than restricted

@@ -45,6 +45,28 @@ export default async function EditAgreementPage({
         PDFs werden nicht rückwirkend geändert.
       </p>
 
+      {clauses.length > 0 && (
+        <p>
+          <a href={`/admin/agreements/${loc.code}/preview`} target="_blank" rel="noreferrer">
+            Vorschau öffnen (Deutsch) →
+          </a>
+          {'  ·  '}
+          <a
+            href={`/admin/agreements/${loc.code}/preview?lang=en`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            English →
+          </a>
+          <br />
+          <span className="muted small">
+            Zeigt den Vertrag mit Beispieldaten. Zum Speichern als PDF im
+            Vorschau-Tab einfach drucken (Strg/Cmd+P → „Als PDF sichern") — das
+            Seitenlayout ist bereits auf A4 eingerichtet.
+          </span>
+        </p>
+      )}
+
       {clauses.length === 0 && (
         <div className="notice">
           <p style={{ marginTop: 0 }}>

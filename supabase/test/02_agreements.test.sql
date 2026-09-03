@@ -39,6 +39,21 @@ select assert_eq(
     join locations l on l.id = ac.location_id where l.code = 'WE'),
   16, 'WE clause sort_order has no gaps or duplicates');
 
+-- Regression guard for docs/05-open-questions.md §18: the booking form charges
+-- a Wassertorplatz deposit, so the Wassertorplatz contract must mention one.
+-- Applied by seed/nv_clauses_overrides.sql; this fails if that file stops being
+-- applied, or if a Word re-import quietly reinstates the deposit-free version.
+select assert_eq(
+  (select count(*)::int from agreement_clauses ac
+    join locations l on l.id = ac.location_id
+   where l.code = 'WA' and ac.body_de like '%Kaution%'),
+  1, 'WA agreement mentions the deposit it actually charges (DE)');
+select assert_eq(
+  (select count(*)::int from agreement_clauses ac
+    join locations l on l.id = ac.location_id
+   where l.code = 'WA' and ac.body_en ilike '%deposit%'),
+  1, 'WA agreement mentions the deposit it actually charges (EN)');
+
 -- --------------------------------------------------------- test fixtures
 -- Location ids (resolved once, as postgres) and three identities: staff (the
 -- default role from handle_new_user()), a location_manager scoped to WE only,

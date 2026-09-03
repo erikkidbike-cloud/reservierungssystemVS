@@ -66,6 +66,18 @@ export default async function AgreementsPage() {
                 <Link href={`/admin/agreements/${l.code}`}>
                   {n > 0 ? 'Bearbeiten →' : 'Vertrag anlegen →'}
                 </Link>
+                {n > 0 && (
+                  <>
+                    {'  ·  '}
+                    <a
+                      href={`/admin/agreements/${l.code}/preview`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Vorschau
+                    </a>
+                  </>
+                )}
               </p>
             </div>
           );

@@ -26,12 +26,22 @@
 
 ## Raised by importing the Nutzungsvereinbarung templates
 
-18. **WA charges a deposit online that its contract never mentions.** The pricing
-    engine takes a Wassertorplatz Kaution of 50 € (≤45 people) / 70 € (≥46), but
-    the word "Kaution" does not appear anywhere in the Wassertorplatz
-    Nutzungsvereinbarung — it has no deposit clause at all (Weinstraße mentions it
-    nine times). Either the clause is missing from the contract or the online
-    deposit should not be charged. **Needs a decision before WA agreements go out.**
+18. ~~**WA charges a deposit online that its contract never mentions.**~~
+    ✅ **Resolved — owner decided to charge it AND put it in the contract.**
+    The Wassertorplatz agreement now has a deposit clause, added by
+    `supabase/seed/nv_clauses_overrides.sql`. The wording was not invented: the
+    deposit sentences are lifted from the owner's own Weinstraße clause
+    (existing, in-use contract text) and merged into Wassertorplatz's own fee
+    sentence, with the amounts left as merge fields so the figures come from the
+    pricing engine. `02_agreements.test.sql` now asserts the WA contract mentions
+    the deposit in both languages, so it can't silently regress.
+    **Two follow-ups remain for the owner:**
+    (a) add the same clause to the Wassertorplatz **Word template**, otherwise a
+    future `import-nv-docx.py` run reintroduces a deposit-free version into
+    `nv_clauses.sql` (the override still wins, but the two sources will disagree);
+    (b) read the drafted wording once before the first real WA agreement goes
+    out — it is an adaptation, not reviewed legal advice, and is editable at
+    `/admin/agreements` without a deploy.
 19. **The WA Word template has structural defects.** Clause 9's body text carries
     the Heading 2 style; the "10. Parallelveranstaltungen" / "10. Parallel Events"
     headings sit inside the previous clause's paragraph rather than being their own

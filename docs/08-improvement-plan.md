@@ -48,24 +48,26 @@ that Wiener Straße needs anyway, and it makes the system immediately useful:
 new bookings could be entered here instead of Excel, before a single customer
 ever sees it.
 
-## Phase A — fix what's broken, plus cheap wins
+## Phase A — fix what's broken, plus cheap wins ✅ DONE
 
-Small, mostly wiring. Do this first because two of them are defects and the
-fourth makes everything built afterward look better.
+Small, mostly wiring. Done first because two were defects and the fourth makes
+everything built afterward look better.
 
-- **A1 — `/admin/users`.** Build it properly: list profiles, change role, assign
-  `user_locations`. Removes the "run SQL by hand to promote someone" step, which
-  is a recurring need every time staff changes, not a one-off.
-- **A2 — `/admin/tariffs`, read-only.** Show the current prices the engine will
-  actually charge. Deliberately **not** a full editor yet: the config is nested
-  JSONB, an editor is fiddly, and prices change roughly yearly — a read-only
-  view plus an occasional code change is the right effort trade for now.
-- **A3 — Agreement preview.** See the note below; this is much cheaper than it
-  looks.
-- **A4 — Styling foundation pass.** Consistent form controls, buttons, tables,
-  spacing scale, a real app header. Do it *now*, before more pages exist —
-  otherwise it's a restyle of ten pages instead of four. A focused pass, not a
-  redesign.
+- ✅ **A1 — `/admin/users`.** Lists everyone who has logged in, with role and
+  location assignment, plus deactivate. Removes the "run SQL by hand to promote
+  someone" step — a recurring need every time staff changes, not a one-off. RLS
+  (`profiles_admin_write`, `user_locations_admin`) remains the real enforcement;
+  the page just stops making people write SQL.
+- ✅ **A2 — `/admin/tariffs`, read-only.** Shows exactly what the engine will
+  charge, parsed with the same `parseTariffConfig()` the pricing engine uses —
+  so it cannot drift from reality, and reports a malformed tariff instead of
+  rendering a plausible-looking lie. Deliberately **not** an editor: nested
+  JSONB, fiddly to edit, and prices change roughly yearly.
+- ✅ **A3 — Agreement preview** at `/admin/agreements/[code]/preview`, rendering
+  the live DB clause text with example booking data. No Chromium (see below).
+- ✅ **A4 — Styling foundation pass.** Token-driven CSS (spacing scale, colour
+  tokens, dark mode), proper form controls, buttons, tables, cards, nav. Done
+  before more pages existed, so new pages inherit it.
 
 ### A3 note: preview is cheap, automated PDF is not
 
@@ -116,15 +118,29 @@ Only once B works end to end.
 Largely as already scoped in `docs/06-handoff-backlog.md` Phase 3–4: agreement
 send + signature flow, SevDesk payment matching, caretaker tasks.
 
-## Decisions needed from the owner (not code)
+## Decisions from the owner
 
-1. **Resend domain verification for `kidbike.de`.** Until the DNS records are
-   verified, mail can only reach the Resend account's own address — which means
-   **B4 cannot be tested with real staff or customers.** This gates Phase B's
-   usefulness.
-2. **The WA deposit contradiction** (`docs/05-open-questions.md` §18): the
-   booking form charges a 50/70 € Wassertorplatz deposit that the WA agreement
-   never mentions. Must be resolved before any WA agreement goes out for real.
-3. **Parallel running.** How long do the old Excel/Apps Script system and this
-   one run side by side, and which is authoritative meanwhile? Affects whether
-   Phase C needs the temporary `events-*.json` export (backlog 1.8).
+1. ✅ **Resend domain verification for `kidbike.de`** — done. Mail can now reach
+   any address, so B4's notifications are testable with real staff and customers.
+2. ✅ **The WA deposit contradiction** — resolved: charge it *and* put it in the
+   contract. Implemented; see `docs/05-open-questions.md` §18 for what was
+   written and the two follow-ups that remain (fold it into the Word template,
+   and read the drafted wording once).
+3. **Parallel running** — the term was jargon; restated plainly, the question is
+   *when does the old system stop being the real one?* Today the old chain
+   (Excel + Apps Script + Power Automate + the booking form on kidbike.de) is
+   still taking every real booking; this system has no customers pointed at it.
+   The recommended answer, unless there's a reason otherwise:
+   - **Keep the old system authoritative and untouched** until Phase C ships.
+     Don't change it, don't dual-enter into both — double entry is how two
+     systems quietly disagree.
+   - **Use this one internally only** during Phase B: staff can look at it, and
+     once B3 lands, enter test bookings in it, but customers never see it.
+   - **Then one clean cutover**: re-point the website's booking iframe at the new
+     form, and from that moment the new system is the only one taking bookings.
+   - This makes backlog **1.8 (temporary `events-*.json` export) unnecessary** —
+     that task only exists to let the new database feed the *old* public form
+     during an overlap period, which a clean cutover doesn't need. Skip it
+     unless the cutover has to be gradual per location.
+   - Historical data (backlog 1.7, the Excel import) can happen before or after
+     cutover; it's independent, and blocked on the WA/WI column layouts anyway.

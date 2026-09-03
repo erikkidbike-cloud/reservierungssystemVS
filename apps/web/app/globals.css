@@ -1,25 +1,66 @@
+/* Design foundation for the whole app. Deliberately plain CSS, no framework:
+   the app is small, and one readable stylesheet beats a build-time dependency
+   here. Everything is token-driven so a later brand pass means editing the
+   :root block, not hunting through components. */
+
 :root {
-  --bg: #ffffff;
-  --fg: #1b1b1b;
-  --muted: #6b6b6b;
-  --line: #e4e4e4;
+  /* Brand — KidBike green. */
   --accent: #0b7a3b;
+  --accent-strong: #095f2e;
+  --accent-soft: #e8f4ec;
+
+  /* Neutrals */
+  --bg: #f7f8f7;
+  --surface: #ffffff;
+  --fg: #16181a;
+  --muted: #5f666b;
+  --line: #e2e5e3;
+  --line-strong: #cbd0cd;
+
+  /* Status */
   --warn: #b45309;
-  --busy: #b91c1c;
+  --warn-soft: #fdf5e9;
+  --danger: #b3261e;
+  --ok: #0b7a3b;
+
+  /* Spacing scale — keeps rhythm consistent across pages. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(16, 24, 20, 0.05), 0 1px 8px rgba(16, 24, 20, 0.04);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #131415;
-    --fg: #ededed;
-    --muted: #a1a1a1;
-    --line: #2c2e30;
-    --accent: #35b06a;
+    --accent: #46c07d;
+    --accent-strong: #6ad198;
+    --accent-soft: #14261c;
+    --bg: #101211;
+    --surface: #181b1a;
+    --fg: #e8eae9;
+    --muted: #9aa2a0;
+    --line: #2a2e2c;
+    --line-strong: #3b413e;
+    --warn: #e0a45c;
+    --warn-soft: #241d12;
+    --danger: #f2837b;
+    --shadow: none;
   }
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -31,71 +72,127 @@ body {
 
 a {
   color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+a:hover {
+  color: var(--accent-strong);
 }
 
+/* ---------------------------------------------------------------- layout */
+
 .wrap {
-  max-width: 1040px;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 24px 20px 64px;
+  padding: var(--s6) var(--s5) var(--s7);
 }
 
 h1 {
-  font-size: 22px;
-  margin: 0 0 4px;
+  font-size: 24px;
+  line-height: 1.25;
+  margin: 0 0 var(--s2);
+  letter-spacing: -0.01em;
 }
 
 h2 {
   font-size: 17px;
-  margin: 28px 0 10px;
+  margin: var(--s6) 0 var(--s3);
+  letter-spacing: -0.005em;
+}
+
+h3 {
+  font-size: 15px;
+  margin: 0 0 var(--s2);
+}
+
+p {
+  margin: 0 0 var(--s3);
 }
 
 .muted {
   color: var(--muted);
 }
 
+.small {
+  font-size: 13px;
+}
+
+.stack > * + * {
+  margin-top: var(--s3);
+}
+
+/* ------------------------------------------------------------------- nav */
+
 .nav {
   display: flex;
-  gap: 18px;
+  gap: var(--s4);
   align-items: center;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
+  padding: var(--s3) var(--s5);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
 .nav a {
   text-decoration: none;
   font-weight: 500;
+  color: var(--fg);
+  padding: var(--s1) 0;
+  border-bottom: 2px solid transparent;
+}
+
+.nav a:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.nav .brand {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin-right: var(--s2);
 }
 
 .nav .spacer {
   margin-left: auto;
 }
 
-.linklike {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  font-weight: 500;
-  color: var(--accent);
-  text-decoration: none;
-  cursor: pointer;
-}
-.linklike:hover {
-  text-decoration: underline;
-}
+/* --------------------------------------------------------------- surfaces */
 
 .cards {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s4);
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 
 .card {
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 16px;
+  border-radius: var(--radius);
+  padding: var(--s4);
+  box-shadow: var(--shadow);
+}
+
+.card > :last-child {
+  margin-bottom: 0;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--s5);
+  box-shadow: var(--shadow);
+  margin-bottom: var(--s4);
+}
+
+/* ---------------------------------------------------------------- tables */
+
+.table-scroll {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 table {
@@ -107,32 +204,198 @@ table {
 th,
 td {
   text-align: left;
-  padding: 8px 10px;
+  padding: var(--s3) var(--s4);
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
 
-th {
+thead th {
   color: var(--muted);
   font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg);
 }
 
-.table-scroll {
-  overflow-x: auto;
+tbody tr:last-child td {
+  border-bottom: none;
 }
+
+tbody tr:hover td {
+  background: var(--accent-soft);
+}
+
+/* --------------------------------------------------------------- badges */
 
 .badge {
   display: inline-block;
-  padding: 1px 8px;
+  padding: 2px var(--s2);
   border-radius: 999px;
   font-size: 12px;
-  border: 1px solid var(--line);
+  font-weight: 500;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  white-space: nowrap;
 }
 
+.badge--ok {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.badge--warn {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+/* --------------------------------------------------------------- notices */
+
 .notice {
+  background: var(--surface);
   border: 1px solid var(--line);
   border-left: 3px solid var(--warn);
-  border-radius: 6px;
-  padding: 12px 14px;
-  margin: 16px 0;
+  border-radius: var(--radius-sm);
+  padding: var(--s3) var(--s4);
+  margin: var(--s4) 0;
+}
+
+.notice > :last-child {
+  margin-bottom: 0;
+}
+
+.notice--ok {
+  border-left-color: var(--accent);
+}
+
+/* ----------------------------------------------------------------- forms */
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-bottom: var(--s3);
+}
+
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="datetime-local"],
+input[type="date"],
+select,
+textarea {
+  display: block;
+  width: 100%;
+  margin-top: var(--s1);
+  padding: var(--s2) var(--s3);
+  font: inherit;
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+
+textarea {
+  line-height: 1.5;
+  resize: vertical;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: var(--s2) var(--s4);
+  color: #fff;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+button.secondary {
+  color: var(--fg);
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+button.secondary:hover {
+  background: var(--bg);
+  border-color: var(--muted);
+}
+
+button.danger {
+  color: var(--danger);
+  background: transparent;
+  border-color: transparent;
+  padding-left: 0;
+}
+
+button.danger:hover {
+  background: transparent;
+  text-decoration: underline;
+}
+
+/* A button that should read as a link (e.g. sign out in the nav). */
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+}
+.linklike:hover {
+  background: none;
+  text-decoration: underline;
+}
+
+.row {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.row > * {
+  margin-bottom: 0;
+}
+
+.grid-2 {
+  display: grid;
+  gap: var(--s4);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+/* --------------------------------------------------------------- details */
+
+details.card > summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style-position: inside;
+}
+
+details.card[open] > summary {
+  margin-bottom: var(--s4);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
 }
