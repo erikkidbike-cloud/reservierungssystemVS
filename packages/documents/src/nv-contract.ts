@@ -18,6 +18,11 @@ export const ORGANISATION = {
   bic: 'BELADEBEXXX',
   email: 'events@kidbike.de',
   web: 'www.kidbike.de',
+  /** Footer block, transcribed from the owner's own signed agreements. */
+  street: 'Bergholzstraße 8',
+  city: '12099 Berlin',
+  leitung: 'Boris Kolipost',
+  phone: '0176 246 111 40',
 } as const;
 
 /**

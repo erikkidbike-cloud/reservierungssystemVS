@@ -109,7 +109,7 @@ export async function updateBookingAndCustomer(formData: FormData): Promise<void
   await admin.from('booking_events').insert({
     booking_id: bookingId,
     event_type: 'edit',
-    actor_id: me.user.id,
+    actor_id: me.id,
     payload: {
       edited_by: me.profile.email,
       customer_updated: !!booking.customer_id,

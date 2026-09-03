@@ -56,6 +56,18 @@ create or replace view public_availability as
 grant select on public_availability to anon, authenticated;
 
 -- 3. create_booking_request with blocks check & allow_overlap support --------
+--
+-- The new signature adds p_allow_overlap, which makes it an OVERLOAD rather
+-- than a replacement (`create or replace` only replaces an identical argument
+-- list). Two overloads that differ only by a defaulted trailing parameter are
+-- ambiguous for every existing caller — Postgres refuses with "function ... is
+-- not unique", and so does PostgREST — so the previous 14-argument version has
+-- to go before the 15-argument one can be used at all.
+drop function if exists create_booking_request(
+  text, timestamptz, timestamptz, int, jsonb, jsonb, jsonb, jsonb,
+  text, text, text, booking_source, tariff_type, boolean
+);
+
 create or replace function create_booking_request(
   p_location_code   text,
   p_starts_at       timestamptz,
@@ -239,8 +251,13 @@ create index if not exists idx_waitlist_status   on waitlist_requests (status);
 
 alter table waitlist_requests enable row level security;
 
+-- has_location() already returns true for admin and finance (see 0005_rls.sql),
+-- so it alone covers every role that may see a waitlist entry: admin and
+-- finance everywhere, location_manager/staff/hausmeister only where they are
+-- assigned. Spelled out rather than relying on that implicitly, since the
+-- name reads as "only their locations".
 create policy waitlist_read on waitlist_requests for select using (
-  is_admin() or is_finance() or has_location(location_id)
+  is_admin() or auth_role() = 'finance' or has_location(location_id)
 );
 
 create policy waitlist_write on waitlist_requests for all using (

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
 import { loadLocation, parseBerlinLocal } from '@/lib/booking-pricing';
+import { checkRateLimit, looksLikeBot, WAITLIST_LIMITS } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,6 +23,18 @@ export async function POST(request: Request) {
     body = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
+  }
+
+  // Same abuse protection as /api/booking-request — this endpoint is just as
+  // anonymous and writes just as freely.
+  if (looksLikeBot(body as Record<string, unknown>)) {
+    console.warn('[waitlist] honeypot tripped, rejecting');
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
+  }
+  const rate = await checkRateLimit(request, WAITLIST_LIMITS);
+  if (!rate.allowed) {
+    console.warn(`[waitlist] rate limit hit: ${rate.tripped}`);
+    return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
   }
 
   const code = (body.school || '').trim().toUpperCase();

@@ -204,3 +204,84 @@ Requesting person:
 directly to the requesting person.)$body$
 )
 on conflict (key) do nothing;
+
+-- Reminder templates (0015). Same table, same editor, same placeholders — a
+-- reminder rule just points at one of these keys.
+insert into mail_templates (key, subject_de, subject_en, body_de, body_en) values
+(
+  'reminder_payment_due',
+  'Erinnerung: Zahlung für {{locationName}}',
+  'Reminder: payment for {{locationName}}',
+  $body$Hallo {{customerName}},
+
+eine kurze Erinnerung: für Ihre Buchung steht die Zahlung noch aus.
+Verbindlich wird die Reservierung erst, wenn der Betrag bei uns eingegangen ist.
+
+{{bookingFacts}}
+
+Mit freundlichen Grüßen
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg$body$,
+  $body$Hello {{customerName}},
+
+a short reminder: payment for your booking is still outstanding. The
+reservation only becomes binding once we have received the amount.
+
+{{bookingFacts}}
+
+Kind regards
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg$body$
+),
+(
+  'reminder_before_event',
+  'Ihr Termin bei {{locationName}} steht bevor',
+  'Your booking at {{locationName}} is coming up',
+  $body$Hallo {{customerName}},
+
+Ihr Termin rückt näher — hier noch einmal die wichtigsten Angaben.
+
+{{bookingFacts}}
+
+Bitte denken Sie an eine pünktliche Übergabe und daran, das Gelände sauber
+zu hinterlassen. Bei Fragen melden Sie sich gerne.
+
+Mit freundlichen Grüßen
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg$body$,
+  $body$Hello {{customerName}},
+
+your booking is coming up — here are the key details once more.
+
+{{bookingFacts}}
+
+Please arrive on time and leave the site clean. Get in touch if you have any
+questions.
+
+Kind regards
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg$body$
+),
+(
+  'reminder_after_event',
+  'Danke für Ihren Besuch bei {{locationName}}',
+  'Thank you for visiting {{locationName}}',
+  $body$Hallo {{customerName}},
+
+vielen Dank, dass Sie bei uns gefeiert haben. Wir hoffen, Sie hatten einen
+schönen Tag.
+
+{{bookingFacts}}
+
+Eine etwaige Kaution erstatten wir innerhalb von 14 Tagen zurück.
+
+Mit freundlichen Grüßen
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg$body$,
+  $body$Hello {{customerName}},
+
+thank you for celebrating with us. We hope you had a lovely day.
+
+{{bookingFacts}}
+
+Any deposit held will be refunded within 14 days.
+
+Kind regards
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg$body$
+)
+on conflict (key) do nothing;

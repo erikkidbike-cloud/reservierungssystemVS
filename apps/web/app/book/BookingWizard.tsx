@@ -33,6 +33,7 @@ import {
   clampToDayMinutes,
 } from '@/lib/berlin-time';
 import { I18N, getTermsForSchool, publicErrorMessage, type Lang } from '@/lib/public-i18n';
+import { HONEYPOT_FIELD } from '@/lib/honeypot';
 
 export interface DayBlock {
   startsAt: string;
@@ -136,6 +137,9 @@ export default function BookingWizard({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<{ from: string; to: string } | null>(null);
   const [activeEvent, setActiveEvent] = useState<DayBlock | null>(null);
+  // Honeypot: hidden from humans, filled by blind form-filling bots. See
+  // lib/rate-limit.ts — the server rejects any submission that carries it.
+  const [honeypot, setHoneypot] = useState('');
 
   const [showWaitlist, setShowWaitlist] = useState(false);
   const [waitlistStatus, setWaitlistStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
@@ -242,6 +246,7 @@ export default function BookingWizard({
           organization: organization || undefined,
           email,
           phone: phone || undefined,
+          [HONEYPOT_FIELD]: honeypot,
         }),
       });
       const json = await res.json();
@@ -280,6 +285,7 @@ export default function BookingWizard({
           customer_email: email,
           customer_phone: phone || undefined,
           message: message || undefined,
+          [HONEYPOT_FIELD]: honeypot,
         }),
       });
       const json = await res.json();
@@ -788,6 +794,23 @@ export default function BookingWizard({
             {t.message}
             <textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} />
           </label>
+
+          {/* Honeypot: off-screen rather than display:none, since some bots
+              skip hidden inputs but not positioned ones. aria-hidden and
+              tabIndex keep it away from screen readers and keyboard users. */}
+          <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
+            <label>
+              {HONEYPOT_FIELD}
+              <input
+                type="text"
+                name={HONEYPOT_FIELD}
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+              />
+            </label>
+          </div>
 
           <h3>{t.termsSummary}</h3>
           <ol style={{ paddingLeft: 20 }}>

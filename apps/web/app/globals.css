@@ -514,3 +514,157 @@ details.card[open] > summary {
 .price-breakdown td:last-child {
   text-align: right;
 }
+
+/* ------------------------------------------------------------ dashboard */
+/* Stat tiles, the week agenda and the single-series month chart on /admin.
+   Deliberately plain CSS in the same token vocabulary as everything else —
+   no chart library, since one series of twelve bars is a few divs. */
+
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: var(--s6) 0 var(--s3);
+}
+.section-title:first-of-type {
+  margin-top: var(--s4);
+}
+
+.stats {
+  display: grid;
+  gap: var(--s3);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: var(--s4);
+  box-shadow: var(--shadow);
+  height: 100%;
+}
+.stat__link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.stat__link:hover .stat {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+}
+.stat__value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.stat__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.stat__hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+.stat--attention {
+  border-left-color: var(--warn);
+}
+.stat--attention .stat__value {
+  color: var(--warn);
+}
+.stat--ok {
+  border-left-color: var(--accent);
+}
+
+.agenda {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.agenda__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+}
+.agenda__row:last-child {
+  border-bottom: 0;
+}
+.agenda__row:hover {
+  background: var(--accent-soft);
+}
+.agenda__when {
+  display: flex;
+  flex-direction: column;
+  min-width: 110px;
+}
+.agenda__what {
+  flex: 1;
+}
+
+/* Single-series bar chart: brand hue, 4px rounded tops anchored to the
+   baseline, only the peak directly labelled. */
+.chart__plot {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 140px;
+  border-bottom: 1px solid var(--line-strong);
+}
+.chart__col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  height: 100%;
+  position: relative;
+}
+.chart__bar {
+  width: 60%;
+  min-height: 0;
+  background: var(--accent);
+  border-radius: 4px 4px 0 0;
+}
+.chart__peak {
+  position: absolute;
+  top: -2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.chart__axis {
+  display: flex;
+  gap: 2px;
+  margin-top: var(--s1);
+}
+.chart__axis span {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .agenda__row {
+    flex-wrap: wrap;
+    gap: var(--s2);
+  }
+  .stat__value {
+    font-size: 24px;
+  }
+}

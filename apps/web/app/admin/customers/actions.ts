@@ -35,7 +35,7 @@ export async function createCustomerExperience(formData: FormData): Promise<void
     match_organization: matchOrg,
     note,
     surcharge_or_discount: Number.isFinite(surchargeDiscount) ? surchargeDiscount : null,
-    created_by: me.user.id,
+    created_by: me.id,
   });
 
   if (error) {

@@ -35,16 +35,33 @@ const L = {
     phoneLabel: 'Telefon:',
     emailLabel: 'E-Mail:',
     welcomeTitle: 'Herzlich willkommen!',
+    // Transcribed verbatim from the owner's own signed agreements (the lead
+    // paragraph is part of the Word letterhead, not of any numbered clause,
+    // which is why the clause importer never picked it up).
+    welcomeBody:
+      'Die Verkehrsschulen Friedrichshain-Kreuzberg fördern die Verkehrssicherheit, die Gesundheit ' +
+      'und das Umweltbewusstsein von Kindern und Erwachsenen mittels Verkehrserziehung auf ' +
+      'umweltfreundlichen Fahrzeugen, Freude an der Bewegung und sinnvoller Freizeitgestaltung. ' +
+      'Die Verkehrsschulen Friedrichshain-Kreuzberg sind auch Orte, an denen sich Nachbarn treffen ' +
+      'und gemeinsam feiern.',
     confirm:
       'Hiermit bestätige ich, dass ich die vorstehenden Bestimmungen gelesen habe und damit einverstanden bin.',
+    place: 'Berlin,',
     date: 'Datum',
     signUser: 'Unterschrift Nutzer*in',
     signStaff: 'Unterschrift Mitarbeiter*in',
     paymentMarker: 'Zahlungsdaten',
-    footer: [
-      'Die drei Verkehrsschulen des Bezirks werden von KidBike e.V. in Kooperation mit dem Bezirksamt Friedrichshain-Kreuzberg organisiert.',
-      `${ORGANISATION.name} · ${ORGANISATION.address}`,
-      `E-Mail: ${ORGANISATION.email} · Web: ${ORGANISATION.web}`,
+    footerNote:
+      'Die drei Verkehrsschulen des Bezirks werden von KidBike e.V. in Kooperation mit dem ' +
+      'Bezirksamt Friedrichshain-Kreuzberg organisiert.',
+    footerContact: [
+      ORGANISATION.name,
+      ORGANISATION.street,
+      ORGANISATION.city,
+      `Leitung: ${ORGANISATION.leitung}`,
+      `Tel. ${ORGANISATION.phone}`,
+      `E-Mail: ${ORGANISATION.email}`,
+      `Web: ${ORGANISATION.web}`,
     ],
   },
   en: {
@@ -57,64 +74,100 @@ const L = {
     phoneLabel: 'Phone number:',
     emailLabel: 'E-Mail address:',
     welcomeTitle: 'Welcome!',
+    // Translation of the German lead paragraph above. Unlike the numbered
+    // clauses (extracted mechanically from the owner's Word file, never
+    // paraphrased) this is welcome copy, not contract text.
+    welcomeBody:
+      'The Friedrichshain-Kreuzberg traffic schools promote road safety, health and environmental ' +
+      'awareness among children and adults through traffic education on environmentally friendly ' +
+      'vehicles, enjoyment of exercise and meaningful leisure activities. The Friedrichshain-Kreuzberg ' +
+      'traffic schools are also places where neighbours meet and celebrate together.',
     confirm: 'I hereby confirm that I have read the above terms and agree to them.',
+    place: 'Berlin,',
     date: 'Date',
     signUser: 'Signature of user',
     signStaff: 'Signature of staff member',
     paymentMarker: 'Payment details',
-    footer: [
-      'The three traffic schools of the district are organised by KidBike e.V. in cooperation with the Friedrichshain-Kreuzberg district office.',
-      `${ORGANISATION.name} · ${ORGANISATION.address}`,
-      `E-Mail: ${ORGANISATION.email} · Web: ${ORGANISATION.web}`,
+    footerNote:
+      'The three traffic schools of the district are organised by KidBike e.V. in cooperation with ' +
+      'the Friedrichshain-Kreuzberg district office.',
+    footerContact: [
+      ORGANISATION.name,
+      ORGANISATION.street,
+      ORGANISATION.city,
+      `Leitung: ${ORGANISATION.leitung}`,
+      `Tel. ${ORGANISATION.phone}`,
+      `E-Mail: ${ORGANISATION.email}`,
+      `Web: ${ORGANISATION.web}`,
     ],
   },
 } as const;
 
-// Brand green, matching apps/web/app/globals.css's --accent — the one place
-// this document's look and the console's look share a source of truth. Kept
-// as a literal here rather than imported: this package has no dependency on
-// the web app (and shouldn't grow one just for a colour).
-const BRAND = '#0b7a3b';
+// The KidBike wordmark's blue, taken from the logo on the owner's own signed
+// agreements. The letterhead reproduces the wordmark as styled text rather
+// than an image so the document stays a single self-contained HTML file with
+// no asset to lose; drop a real logo in by setting LOGO_SRC to a data: URI or
+// an absolute URL and it is used instead.
+const BRAND = '#1b6ca8';
+const LOGO_SRC: string | null = null;
 
+// Layout follows the owner's existing Word/PDF agreement closely: venue block
+// top-left, wordmark top-right, the title under it, then zwischen:/und: with
+// the party table, the welcome lead, the numbered clauses, the confirmation
+// sentence, three signature lines, and a two-column footer.
 const STYLES = `
-  @page { size: A4; margin: 20mm 18mm 20mm; }
+  @page { size: A4; margin: 16mm 18mm 16mm; }
   * { box-sizing: border-box; }
-  body { font: 10pt/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1a1a1a; margin: 0; }
-  .head { display: flex; justify-content: space-between; align-items: flex-end;
-          border-bottom: 1.5pt solid ${BRAND}; padding-bottom: 4mm; margin-bottom: 8mm; }
-  .head h1 { font-size: 17pt; font-weight: 700; margin: 0; color: #111; letter-spacing: 0.2pt; }
-  .head .brand { font-size: 9pt; font-weight: 700; color: ${BRAND}; text-transform: uppercase;
-                 letter-spacing: 0.6pt; margin: 0 0 1.5mm; }
-  .head .venue { text-align: right; font-size: 9pt; color: #444; white-space: pre-line; line-height: 1.4; }
-  .parties { margin: 0 0 7mm; padding: 4mm 5mm; background: #f6f9f7; border-radius: 2mm; }
-  .parties p { margin: 0 0 2mm; }
-  .parties table { border-collapse: collapse; margin-top: 1mm; }
-  .parties th { text-align: left; font-weight: 600; padding: 0.8mm 6mm 0.8mm 0;
-                vertical-align: top; color: #333; white-space: nowrap; }
-  .parties td { padding: 0.8mm 0; vertical-align: top; }
-  .lede { margin: 0 0 5mm; }
-  .lede h2 { font-size: 12pt; font-weight: 700; color: ${BRAND}; margin: 0 0 2mm; }
-  ol.clauses { list-style: none; counter-reset: clause; padding-left: 0; margin: 0 0 8mm; }
-  ol.clauses > li { counter-increment: clause; margin: 0 0 5mm; padding-left: 8mm; position: relative;
-                    page-break-inside: avoid; }
-  ol.clauses > li::before {
-    content: counter(clause) ".";
-    position: absolute; left: 0; top: 0; font-weight: 700; color: ${BRAND};
-  }
-  ol.clauses .ct { font-weight: 700; display: block; margin-bottom: 1.2mm; color: #111; }
-  ol.clauses p { margin: 0 0 1.5mm; }
-  ol.clauses ul { margin: 0 0 1.5mm; padding-left: 5mm; }
-  table.kv { border-collapse: collapse; margin: 1.5mm 0; }
-  table.kv th { text-align: left; font-weight: 500; color: #333; padding: 0.6mm 6mm 0.6mm 0;
+  body { font: 10pt/1.45 "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1a1a1a; margin: 0; }
+
+  .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 7mm; }
+  .head .venue { font-size: 10pt; color: #1a1a1a; white-space: pre-line; line-height: 1.35; font-weight: 600; }
+  .head .logo { text-align: right; }
+  .head .logo img { height: 13mm; }
+  .head .wordmark { font-size: 20pt; font-weight: 800; color: ${BRAND}; letter-spacing: -0.3pt;
+                    line-height: 1; white-space: nowrap; }
+  .head .wordmark span { font-weight: 400; font-size: 15pt; }
+
+  h1 { font-size: 15pt; font-weight: 700; margin: 0 0 6mm; color: #111; }
+
+  .parties { margin: 0 0 6mm; }
+  .parties .between { margin: 0 0 3mm; }
+  .parties .between .lbl { font-weight: 700; }
+  .parties .org { margin: 1mm 0 0 14mm; white-space: pre-line; line-height: 1.35; }
+  .parties .and { font-weight: 700; margin: 0 0 1.5mm; }
+  .parties table { border-collapse: collapse; width: 100%; }
+  .parties th { text-align: left; font-weight: 400; padding: 0.7mm 6mm 0.7mm 0;
+                vertical-align: top; white-space: nowrap; width: 34mm; }
+  .parties td { padding: 0.7mm 0; vertical-align: top; font-weight: 600; }
+
+  .lede { margin: 0 0 6mm; }
+  .lede h2 { font-size: 11pt; font-weight: 700; margin: 0 0 2mm; }
+  .lede p { margin: 0; text-align: justify; }
+
+  ol.clauses { list-style: none; counter-reset: clause; padding-left: 0; margin: 0 0 7mm; }
+  ol.clauses > li { counter-increment: clause; margin: 0 0 4mm; page-break-inside: avoid; }
+  ol.clauses .ct { font-weight: 700; display: block; margin-bottom: 1mm; color: #111; }
+  ol.clauses .ct::before { content: counter(clause) ". "; }
+  ol.clauses p { margin: 0 0 1.2mm; text-align: justify; }
+  ol.clauses ul { margin: 0 0 1.2mm; padding-left: 5mm; }
+
+  table.kv { border-collapse: collapse; margin: 1.5mm 0 1.5mm 0; }
+  table.kv th { text-align: left; font-weight: 400; color: #1a1a1a; padding: 0.5mm 8mm 0.5mm 0;
                 vertical-align: top; white-space: nowrap; }
-  table.kv td { padding: 0.6mm 0; vertical-align: top; }
-  .confirm { margin: 8mm 0 0; padding: 3mm 4mm; border-left: 2pt solid ${BRAND}; background: #f6f9f7; }
-  .sign { margin-top: 14mm; display: flex; gap: 10mm; }
-  .sign > div { flex: 1; border-top: 0.7pt solid #333; padding-top: 2mm;
-                font-size: 8.5pt; color: #444; }
-  .foot { margin-top: 12mm; padding-top: 3mm; border-top: 0.4pt solid #ccc;
-          font-size: 8pt; color: #666; }
-  .foot p { margin: 0 0 1mm; }
+  table.kv td { padding: 0.5mm 0; vertical-align: top; font-weight: 600; }
+
+  .confirm { margin: 7mm 0 0; }
+
+  .sign { margin-top: 16mm; display: flex; gap: 8mm; page-break-inside: avoid; }
+  .sign > div { flex: 1; border-top: 0.7pt solid #1a1a1a; padding-top: 1.5mm; font-size: 8.5pt; }
+  .sign .place { border: 0; padding-top: 0; align-self: flex-end; flex: 0 0 auto;
+                 font-size: 10pt; padding-right: 2mm; }
+
+  .foot { margin-top: 10mm; padding-top: 2.5mm; border-top: 0.5pt solid #bbb;
+          font-size: 7.5pt; color: #555; display: flex; justify-content: space-between; gap: 10mm; }
+  .foot .note { max-width: 85mm; }
+  .foot .contact { text-align: right; white-space: pre-line; line-height: 1.35; }
+  .foot p { margin: 0; }
 `;
 
 /** A clause body line that is a label for the value on the next line. */
@@ -237,16 +290,22 @@ export function buildNutzungsvereinbarungHtml(data: NvData, opts: RenderOptions 
 </head>
 <body>
 <div class="head">
-  <div>
-    <p class="brand">${escapeHtml(ORGANISATION.name)}</p>
-    <h1>${escapeHtml(t.title)}</h1>
-  </div>
   <div class="venue">${escapeHtml(venue)}</div>
+  <div class="logo">${
+    LOGO_SRC
+      ? `<img src="${LOGO_SRC}" alt="${escapeHtml(ORGANISATION.name)}">`
+      : `<div class="wordmark">KidBike <span>e.V.</span></div>`
+  }</div>
 </div>
 
+<h1>${escapeHtml(t.title)}</h1>
+
 <div class="parties">
-  <p><strong>${escapeHtml(t.between)}</strong> ${escapeHtml(ORGANISATION.name)}, ${escapeHtml(ORGANISATION.address)}</p>
-  <p><strong>${escapeHtml(t.and)}</strong></p>
+  <div class="between">
+    <span class="lbl">${escapeHtml(t.between)}</span>
+    <div class="org">${escapeHtml(`${ORGANISATION.name}\n${ORGANISATION.street}\n${ORGANISATION.city}`)}</div>
+  </div>
+  <p class="and">${escapeHtml(t.and)}</p>
   <table>
     ${partyRows.map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join('\n    ')}
   </table>
@@ -254,6 +313,7 @@ export function buildNutzungsvereinbarungHtml(data: NvData, opts: RenderOptions 
 
 <div class="lede">
   <h2>${escapeHtml(t.welcomeTitle)}</h2>
+  <p>${escapeHtml(t.welcomeBody)}</p>
 </div>
 
 <ol class="clauses">
@@ -263,13 +323,15 @@ ${clausesHtml}
 <p class="confirm">${escapeHtml(t.confirm)}</p>
 
 <div class="sign">
-  <div>Berlin, ${escapeHtml(formatDate(new Date(), lang))} — ${escapeHtml(t.date)}</div>
+  <div class="place">${escapeHtml(t.place)}</div>
+  <div>${escapeHtml(t.date)}</div>
   <div>${escapeHtml(t.signUser)}</div>
   <div>${escapeHtml(t.signStaff)}</div>
 </div>
 
 <div class="foot">
-${t.footer.map((f) => `  <p>${escapeHtml(f)}</p>`).join('\n')}
+  <p class="note">${escapeHtml(t.footerNote)}</p>
+  <p class="contact">${escapeHtml(t.footerContact.join('\n'))}</p>
 </div>
 </body>
 </html>`;

@@ -43,6 +43,7 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    supabase/migrations/0012_events.sql
    supabase/migrations/0013_mail_templates.sql
    supabase/migrations/0014_enhancements.sql
+   supabase/migrations/0015_reminders_ical_ratelimit.sql
    ```
 
    **`0009` matters even though it looks like boilerplate.** Without it, the
@@ -360,3 +361,36 @@ If there are two rows, copy the role and any `user_locations` rows from the old
 one to the new one, then set the old row's `is_active = false` (don't delete
 it — `created_by`/`updated_by`/`assignee_id` foreign keys elsewhere may still
 point at it).
+
+## Scheduled jobs (cron)
+
+Four endpoints do the recurring work. All are authorised by `CRON_SECRET`
+(see `apps/web/.env.example`) — sent either as `Authorization: Bearer <secret>`
+or as `?secret=<secret>` — and all fail closed if that variable is unset.
+
+| Endpoint | What it does | Suggested schedule |
+|---|---|---|
+| `/api/cron/expire-holds` | Lapsed `requested` holds → `expired`, freeing the slot | hourly |
+| `/api/cron/auto-complete` | `confirmed` bookings whose event has ended → `completed`, which schedules the deposit return | hourly |
+| `/api/cron/send-reminders` | Sends the reminder rules configured at `/admin/reminders` | hourly |
+| `/api/cron/sync-payments` | SevDesk payment matching (no-op until `SEVDESK_API_TOKEN` is set) | hourly |
+
+Any scheduler works. The simplest with what is already set up is pg_cron plus
+`pg_net` from the Supabase SQL editor, e.g.:
+
+```sql
+select cron.schedule('reminders-hourly', '15 * * * *', $$
+  select net.http_get(
+    url := 'https://<your-site>/api/cron/send-reminders?secret=<CRON_SECRET>'
+  );
+$$);
+```
+
+Stagger the minutes (`5`, `15`, `25`, …) so the four jobs don't all wake the
+same cold function at once.
+
+**Reminders never send twice.** Each send is claimed by inserting into
+`reminder_sends` (booking + rule is the primary key) *before* the mail goes
+out, so two overlapping runs cannot both send the same reminder. Turning a
+rule on also does not retro-fire it at old bookings: `due_reminders` only looks
+back 48 hours.

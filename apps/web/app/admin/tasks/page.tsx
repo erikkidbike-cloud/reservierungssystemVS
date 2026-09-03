@@ -17,6 +17,7 @@ import { getSessionUser, canSeeTasks, canApprove } from '@/lib/auth';
 import type { CaretakerTaskRow, TaskRow } from '@/lib/db-types';
 import { TASK_TYPE_LABEL, TASK_STATUS_LABEL, taskStatusBadgeClass, fmtDue } from '@/lib/task-labels';
 import { markTaskDone, reopenTask, reassignTask } from './actions';
+import CalendarSubscribe from '../CalendarSubscribe';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,6 +68,7 @@ export default async function TasksPage({
     return (
       <>
         <h1>Meine Aufgaben</h1>
+        <CalendarSubscribe />
         <div className="row" style={{ margin: '16px 0' }}>
           <a href="/admin/tasks?filter=open">
             <span className={filter !== 'all' ? 'badge badge--ok' : 'badge'}>Offen</span>
@@ -153,6 +155,7 @@ export default async function TasksPage({
   return (
     <>
       <h1>Aufgaben</h1>
+      <CalendarSubscribe />
       <div className="row" style={{ margin: '16px 0' }}>
         <a href="/admin/tasks?filter=open">
           <span className={filter !== 'all' ? 'badge badge--ok' : 'badge'}>Offen</span>

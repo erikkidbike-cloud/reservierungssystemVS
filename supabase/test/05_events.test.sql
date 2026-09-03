@@ -61,9 +61,12 @@ begin
     'project', 'a block linked to a project is kind=project');
 end $$;
 
--- A non-public block never appears, category or not.
+-- A non-public block DOES occupy the slot publicly (0014 changed this: an
+-- internal closure the public calendar didn't show was a real hole — someone
+-- could request a slot that was actually blocked) but reveals nothing about
+-- itself: opaque 'busy', with every descriptive column nulled out.
 do $$
-declare loc_id uuid; proj_id uuid;
+declare loc_id uuid; proj_id uuid; row_count int;
 begin
   select id into loc_id from locations where code = 'WI';
   select id into proj_id from projects where code = 'test_category';
@@ -74,10 +77,20 @@ begin
     (current_date + 302)::timestamp at time zone 'Europe/Berlin' + interval '2 hours',
     false
   );
+
   perform assert_eq(
-    (select count(*)::int from public_availability where location_code = 'WI'
+    (select kind from public_availability where location_code = 'WI'
        and starts_at = (current_date + 302)::timestamp at time zone 'Europe/Berlin'),
-    0, 'a non-public block is never exposed, even with a category');
+    'busy', 'a non-public block occupies the slot as opaque "busy"');
+
+  select count(*)::int into row_count
+  from public_availability
+  where location_code = 'WI'
+    and starts_at = (current_date + 302)::timestamp at time zone 'Europe/Berlin'
+    and (public_title is not null or public_link is not null
+         or color is not null or public_description is not null or project_code is not null);
+  perform assert_eq(row_count, 0,
+    'a non-public block leaks no title, link, colour, description or category');
 end $$;
 
 \echo '--- all events tests passed ---'

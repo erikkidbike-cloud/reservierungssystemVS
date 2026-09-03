@@ -13,6 +13,7 @@ import { sendMail } from '@/lib/mail';
 import { newRequestToLocation, requestReceivedToCustomer } from '@/lib/mail-send';
 import type { BookingMailContext } from '@/lib/mail-vars';
 import { siteOriginFromRequest, absoluteUrl } from '@/lib/site-url';
+import { checkRateLimit, looksLikeBot, BOOKING_LIMITS } from '@/lib/rate-limit';
 import type { TariffType } from '@/lib/db-types';
 
 export const dynamic = 'force-dynamic';
@@ -64,6 +65,19 @@ export async function POST(request: Request) {
     body = await request.json();
   } catch {
     return bad('invalid_json');
+  }
+
+  // Abuse protection before anything else touches the database. A bot that
+  // filled the honeypot gets the same shape of answer a real over-limit
+  // request would, so a scraper learns nothing about which check caught it.
+  if (looksLikeBot(body as Record<string, unknown>)) {
+    console.warn('[booking-request] honeypot tripped, rejecting');
+    return bad('rate_limited', 429);
+  }
+  const rate = await checkRateLimit(request, BOOKING_LIMITS);
+  if (!rate.allowed) {
+    console.warn(`[booking-request] rate limit hit: ${rate.tripped}`);
+    return bad('rate_limited', 429);
   }
 
   const code = (body.school || '').trim().toUpperCase();

@@ -341,6 +341,10 @@ const ERROR_COPY: Record<string, { de: string; en: string }> = {
     de: 'Die Anfrage konnte nicht gesendet werden. Bitte später erneut versuchen.',
     en: 'The request could not be sent. Please try again later.',
   },
+  rate_limited: {
+    de: 'Es sind zu viele Anfragen in kurzer Zeit eingegangen. Bitte versuchen Sie es in einer Stunde erneut oder rufen Sie uns an.',
+    en: 'Too many requests in a short time. Please try again in an hour, or give us a call.',
+  },
   pricing_failed: {
     de: 'Der Preis konnte nicht berechnet werden.',
     en: 'The price could not be calculated.',
