@@ -150,3 +150,70 @@ test('end <= start → price on request, no caution', () => {
   assert.equal(r.onRequest, true);
   assert.equal(r.total, null);
 });
+
+// --- Quantity extras + parameterised caution --------------------------------
+
+test('quantity extra: charges pricePerUnit * clamped quantity, labelled with the count', () => {
+  const cfg = {
+    ...WE_STANDARD,
+    extras: [
+      { id: 'chairs', type: 'quantity' as const, pricePerUnit: 2, min: 0, max: 20, labelDe: 'Stühle', labelEn: 'Chairs' },
+    ],
+  };
+  const r = computePrice({ start: D(1, 7, 10), end: D(1, 7, 14), persons: 20, extraQuantities: { chairs: 5 } }, cfg);
+  assert.equal(r.extrasCost, 10); // 5 * 2
+  assert.ok(r.extrasSelected.includes('5x Stühle'));
+});
+
+test('quantity extra: clamps to max', () => {
+  const cfg = {
+    ...WE_STANDARD,
+    extras: [
+      { id: 'chairs', type: 'quantity' as const, pricePerUnit: 2, max: 10, labelDe: 'Stühle', labelEn: 'Chairs' },
+    ],
+  };
+  const r = computePrice({ start: D(1, 7, 10), end: D(1, 7, 14), persons: 20, extraQuantities: { chairs: 999 } }, cfg);
+  assert.equal(r.extrasCost, 20); // clamped to 10 * 2
+});
+
+test('quantity extra: clamps to min', () => {
+  const cfg = {
+    ...WE_STANDARD,
+    extras: [
+      { id: 'chairs', type: 'quantity' as const, pricePerUnit: 2, min: 3, labelDe: 'Stühle', labelEn: 'Chairs' },
+    ],
+  };
+  const r = computePrice({ start: D(1, 7, 10), end: D(1, 7, 14), persons: 20, extraQuantities: { chairs: 1 } }, cfg);
+  assert.equal(r.extrasCost, 6); // clamped up to 3 * 2
+});
+
+test('a person_band tariff (WA) now actually charges configured extras (previously always 0)', () => {
+  const cfg = {
+    ...WA_STANDARD,
+    extras: [{ id: 'grill', type: 'toggle' as const, price: 15, labelDe: 'Grill', labelEn: 'Grill' }],
+  };
+  const r = computePrice({ start: D(1, 7, 10), end: D(1, 7, 20), persons: 30, extras: ['grill'] }, cfg);
+  assert.equal(r.extrasCost, 15);
+  assert.equal(r.total, 140 + 15);
+});
+
+test('caution amounts are configurable per tariff (WE)', () => {
+  const cfg = {
+    ...WE_STANDARD,
+    caution: { type: 'we' as const, personsThreshold: 50, amountInWindow: null, amountStandard: 300, amountHigh: 900 },
+  };
+  // >50 persons, outside the daytime window → amountHigh.
+  const r = computePrice({ start: D(1, 3, 8), end: D(1, 3, 12), persons: 60 }, cfg); // Sat = weekend
+  assert.equal(r.caution, 900);
+});
+
+test('caution amounts are configurable per tariff (WA)', () => {
+  const cfg = {
+    ...WA_STANDARD,
+    caution: { type: 'wa' as const, personsThreshold: 45, amountBelow: 25, amountAtOrAbove: 40 },
+  };
+  const below = computePrice({ start: D(1, 7, 10), end: D(1, 7, 20), persons: 30 }, cfg);
+  assert.equal(below.caution, 25);
+  const above = computePrice({ start: D(1, 7, 10), end: D(1, 7, 20), persons: 60 }, cfg);
+  assert.equal(above.caution, 40);
+});

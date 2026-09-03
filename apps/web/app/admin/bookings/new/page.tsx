@@ -236,21 +236,33 @@ export default async function NewBookingPage({
         {config && (config.extras.length > 0 || config.bikePricePerUnit != null) && (
           <div className="panel">
             <h2 style={{ marginTop: 0 }}>Extras</h2>
-            {config.extras.map((x) => (
-              <label
-                key={x.id}
-                style={{ fontWeight: 400, color: 'var(--fg)', marginBottom: 4 }}
-              >
-                <input
-                  type="checkbox"
-                  name="extras"
-                  value={x.id}
-                  defaultChecked={selectedExtras.has(x.id)}
-                  style={{ width: 'auto', display: 'inline', marginRight: 8 }}
-                />
-                {x.labelDe} ({x.price.toFixed(2)} €)
-              </label>
-            ))}
+            {config.extras.map((x) =>
+              x.type === 'quantity' ? (
+                <label key={x.id}>
+                  {x.labelDe} (je {x.pricePerUnit.toFixed(2)} €
+                  {x.min ? `, min. ${x.min}` : ''}
+                  {x.max ? `, max. ${x.max}` : ''})
+                  <input
+                    type="number"
+                    name={`extra_qty_${x.id}`}
+                    min={x.min ?? 0}
+                    max={x.max}
+                    defaultValue={prev(params, `extra_qty_${x.id}`)}
+                  />
+                </label>
+              ) : (
+                <label key={x.id} style={{ fontWeight: 400, color: 'var(--fg)', marginBottom: 4 }}>
+                  <input
+                    type="checkbox"
+                    name="extras"
+                    value={x.id}
+                    defaultChecked={selectedExtras.has(x.id)}
+                    style={{ width: 'auto', display: 'inline', marginRight: 8 }}
+                  />
+                  {x.labelDe} ({x.price.toFixed(2)} €)
+                </label>
+              ),
+            )}
             {config.bikePricePerUnit != null && (
               <label style={{ marginTop: 12 }}>
                 Kinderfahrräder (Anzahl, je {config.bikePricePerUnit.toFixed(2)} €)

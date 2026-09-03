@@ -57,6 +57,7 @@ psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$ROOT/supabase/seed/seed.sql"
 psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$ROOT/supabase/seed/nv_clauses.sql"
 # Deliberate deviations from the Word import — must come last so they win.
 psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$ROOT/supabase/seed/nv_clauses_overrides.sql"
+psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$ROOT/supabase/seed/mail_templates.sql"
 
 echo "==> tests"
 # psql prefixes notices with "psql:file:line: " — strip that for readable output.

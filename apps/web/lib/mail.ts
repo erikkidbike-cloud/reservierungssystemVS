@@ -11,6 +11,12 @@
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
+export interface MailAttachment {
+  filename: string;
+  content: Uint8Array;
+  contentType?: string;
+}
+
 export interface MailMessage {
   to: string[];
   subject: string;
@@ -18,6 +24,8 @@ export interface MailMessage {
   text: string;
   replyTo?: string;
   cc?: string[];
+  /** The rendered Nutzungsvereinbarung PDF, when one was produced — see lib/pdf.ts. */
+  attachments?: MailAttachment[];
 }
 
 export interface MailResult {
@@ -61,6 +69,12 @@ export async function sendMail(msg: MailMessage): Promise<MailResult> {
         reply_to: msg.replyTo,
         subject: msg.subject,
         text: msg.text,
+        // Resend wants attachment content as base64. Buffer works for both a
+        // Node Buffer and a plain Uint8Array (what @vs/documents returns).
+        attachments: msg.attachments?.map((a) => ({
+          filename: a.filename,
+          content: Buffer.from(a.content).toString('base64'),
+        })),
       }),
     });
 

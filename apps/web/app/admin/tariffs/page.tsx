@@ -1,19 +1,17 @@
-// Prices, read-only.
-//
-// Deliberately not an editor yet: the tariff config is nested JSONB, an editor
-// for it is fiddly, and prices change roughly yearly — so a clear view of what
-// the engine will actually charge is most of the value for a fraction of the
-// work. Editing stays a deliberate change to supabase/seed/seed.sql.
+// Prices — read-only for everyone, editable for admins (TariffEditor.tsx).
 //
 // The figures below are parsed with the same parseTariffConfig() the pricing
 // engine uses, so this page cannot drift from what customers are charged: if a
 // tariff row were malformed, this page reports it rather than rendering a
-// plausible-looking lie.
+// plausible-looking lie. Saving goes through the identical parser (see
+// actions.ts) before anything is written, for the same reason.
 
 import { cookies } from 'next/headers';
 import { serverClient } from '@/lib/supabase';
 import { parseTariffConfig, type TariffConfig } from '@vs/pricing';
 import type { Location, TariffRow } from '@/lib/db-types';
+import { getSessionUser, canManageTariffs } from '@/lib/auth';
+import TariffEditor from './TariffEditor';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,7 +119,10 @@ function TariffView({ cfg }: { cfg: TariffConfig }) {
         <ul className="muted">
           {cfg.extras.map((e) => (
             <li key={e.id}>
-              {e.labelDe} — {euro(e.price)}
+              {e.labelDe} —{' '}
+              {e.type === 'quantity'
+                ? `${euro(e.pricePerUnit)} pro Einheit${e.min ? `, min. ${e.min}` : ''}${e.max ? `, max. ${e.max}` : ''}`
+                : euro(e.price)}
             </li>
           ))}
           {cfg.bikePricePerUnit != null && (
@@ -137,6 +138,9 @@ function TariffView({ cfg }: { cfg: TariffConfig }) {
 }
 
 export default async function TariffsPage() {
+  const me = await getSessionUser();
+  const canEdit = canManageTariffs(me?.profile?.role);
+
   const supabase = serverClient(await cookies());
   const [{ data: locations }, { data: tariffs, error }] = await Promise.all([
     supabase.from('locations').select('*').eq('is_active', true).order('sort_order'),
@@ -159,36 +163,67 @@ export default async function TariffsPage() {
       <h1>Preise</h1>
       <p className="muted">
         Das ist exakt, was die Preis-Engine berechnet — diese Seite liest dieselbe
-        Konfiguration wie das Buchungsformular. Ansicht nur zum Lesen; Änderungen
-        laufen zurzeit über eine Anpassung der Preistabelle im Code.
+        Konfiguration wie das Buchungsformular.
+        {canEdit
+          ? ' Zum Bearbeiten einen Standort aufklappen.'
+          : ' Nur zum Lesen — Bearbeiten können Administratorinnen.'}
       </p>
 
       {(locations ?? []).map((l) => {
         const loc = l as Location;
-        const row = rows.find(
-          (t) => t.location_id === loc.id && t.tariff_type === 'standard',
-        );
+        const tariffRows = rows.filter((t) => t.location_id === loc.id);
 
-        let cfg: TariffConfig | null = null;
-        let parseError: string | null = null;
-        if (row) {
+        if (tariffRows.length === 0) {
+          return (
+            <div className="panel" key={loc.id}>
+              <h2 style={{ marginTop: 0 }}>{loc.name}</h2>
+              <p className="muted">Kein Tarif hinterlegt.</p>
+            </div>
+          );
+        }
+
+        return tariffRows.map((row) => {
+          let cfg: TariffConfig | null = null;
+          let parseError: string | null = null;
           try {
             cfg = parseTariffConfig(row.config);
           } catch (err) {
             parseError = (err as Error).message;
           }
-        }
 
-        return (
-          <div className="panel" key={loc.id}>
-            <h2 style={{ marginTop: 0 }}>{loc.name}</h2>
-            {!row && <p className="muted">Kein Standard-Tarif hinterlegt.</p>}
-            {parseError && (
-              <div className="notice">Tarif fehlerhaft: {parseError}</div>
-            )}
-            {cfg && <TariffView cfg={cfg} />}
-          </div>
-        );
+          if (parseError) {
+            return (
+              <div className="panel" key={row.id}>
+                <h2 style={{ marginTop: 0 }}>
+                  {loc.name} <span className="muted small">({row.tariff_type})</span>
+                </h2>
+                <div className="notice">Tarif fehlerhaft: {parseError}</div>
+              </div>
+            );
+          }
+          if (!cfg) return null;
+
+          if (canEdit) {
+            return (
+              <TariffEditor
+                key={row.id}
+                tariffId={row.id}
+                locationName={loc.name}
+                tariffType={row.tariff_type}
+                initial={cfg}
+              />
+            );
+          }
+
+          return (
+            <div className="panel" key={row.id}>
+              <h2 style={{ marginTop: 0 }}>
+                {loc.name} <span className="muted small">({row.tariff_type})</span>
+              </h2>
+              <TariffView cfg={cfg} />
+            </div>
+          );
+        });
       })}
     </>
   );

@@ -51,12 +51,12 @@ select id, 'standard', '{
   ],
   "surcharge": { "type": "window_or_weekend", "amount": 35, "windowStart": "09:00", "windowEnd": "17:30" },
   "extras": [
-    { "id": "parcours", "price": 10, "labelDe": "Fahrradparcours",   "labelEn": "Bike course" },
-    { "id": "grill",    "price": 10, "labelDe": "Grill",             "labelEn": "Grill" },
-    { "id": "tisch",    "price": 10, "labelDe": "Tischtennisplatte", "labelEn": "Table tennis" }
+    { "id": "parcours", "type": "toggle", "price": 10, "labelDe": "Fahrradparcours",   "labelEn": "Bike course" },
+    { "id": "grill",    "type": "toggle", "price": 10, "labelDe": "Grill",             "labelEn": "Grill" },
+    { "id": "tisch",    "type": "toggle", "price": 10, "labelDe": "Tischtennisplatte", "labelEn": "Table tennis" }
   ],
   "bikePricePerUnit": 1,
-  "caution": { "type": "we" }
+  "caution": { "type": "we", "personsThreshold": 50, "amountInWindow": null, "amountStandard": 200, "amountHigh": 500 }
 }'::jsonb
 from locations where code = 'WE'
 on conflict (location_id, tariff_type, valid_from) do nothing;
@@ -102,7 +102,7 @@ select id, 'standard', '{
   ],
   "surcharge": { "type": "none" },
   "extras": [],
-  "caution": { "type": "wa" }
+  "caution": { "type": "wa", "personsThreshold": 45, "amountBelow": 50, "amountAtOrAbove": 70 }
 }'::jsonb
 from locations where code = 'WA'
 on conflict (location_id, tariff_type, valid_from) do nothing;

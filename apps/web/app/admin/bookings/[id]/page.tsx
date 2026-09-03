@@ -23,6 +23,7 @@ import {
 } from '@/lib/booking-labels';
 import { transitionBooking, saveInternalNotes } from '../actions';
 import { siteOriginFromHeaders, absoluteUrl } from '@/lib/site-url';
+import { MAIL_KEY_FOR_ACTION } from '@/lib/mail-send';
 
 export const dynamic = 'force-dynamic';
 
@@ -238,30 +239,44 @@ export default async function BookingDetailPage({
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>Nächster Schritt</h2>
           <p className="muted small">
-            Statusänderungen werden protokolliert. Bei Ablehnung und Stornierung
-            geht automatisch eine E-Mail an die anfragende Person.
+            Statusänderungen werden protokolliert. Bei Aktionen mit E-Mail an die anfragende
+            Person kann der Text vor dem Versand bearbeitet werden.
           </p>
-          <div className="row">
-            {actions.map((a) => (
-              <form action={transitionBooking} key={a}>
-                <input type="hidden" name="bookingId" value={b.id} />
-                <input type="hidden" name="action" value={a} />
-                {ACTIONS_WITH_REASON.includes(a) && (
-                  <input
-                    type="text"
-                    name="reason"
-                    placeholder="Grund (optional, wird mitgeteilt)"
-                    style={{ minWidth: 240, marginBottom: 8 }}
-                  />
-                )}
-                <button
-                  type="submit"
-                  className={DESTRUCTIVE_ACTIONS.includes(a) ? 'secondary' : undefined}
-                >
-                  {ACTION_LABEL[a]}
-                </button>
-              </form>
-            ))}
+          <div className="row" style={{ alignItems: 'flex-start' }}>
+            {actions.map((a) =>
+              MAIL_KEY_FOR_ACTION[a] ? (
+                <div key={a} className="row" style={{ marginBottom: 0 }}>
+                  <Link href={`/admin/bookings/${b.id}/send/${a}`}>
+                    <button type="button" className={DESTRUCTIVE_ACTIONS.includes(a) ? 'secondary' : undefined}>
+                      {ACTION_LABEL[a]} …
+                    </button>
+                  </Link>
+                  <form action={transitionBooking}>
+                    <input type="hidden" name="bookingId" value={b.id} />
+                    <input type="hidden" name="action" value={a} />
+                    <button type="submit" className="secondary" title="Mit der Standard-Vorlage sofort senden">
+                      Sofort senden
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <form action={transitionBooking} key={a}>
+                  <input type="hidden" name="bookingId" value={b.id} />
+                  <input type="hidden" name="action" value={a} />
+                  {ACTIONS_WITH_REASON.includes(a) && (
+                    <input
+                      type="text"
+                      name="reason"
+                      placeholder="Grund (optional, wird mitgeteilt)"
+                      style={{ minWidth: 240, marginBottom: 8 }}
+                    />
+                  )}
+                  <button type="submit" className={DESTRUCTIVE_ACTIONS.includes(a) ? 'secondary' : undefined}>
+                    {ACTION_LABEL[a]}
+                  </button>
+                </form>
+              ),
+            )}
           </div>
         </div>
       )}

@@ -45,6 +45,39 @@ export interface Location {
   sort_order: number;
 }
 
+/** A category for special events — the `projects` table. Also used for the
+ * long-running Frauenprojekt/Frauengefängnis blocks, so a "category" here is
+ * really "a named, coloured group of blocks", public-event-specific or not. */
+export interface ProjectRow {
+  id: string;
+  code: string;
+  name: string;
+  public_title: string | null;
+  public_description: string | null;
+  public_link: string | null;
+  color: string | null;
+  sort_order: number;
+}
+
+export type BlockKind = 'project' | 'maintenance' | 'training' | 'other';
+
+/** A block: an internal closure, or — when is_public — a public "special event". */
+export interface BlockRow {
+  id: string;
+  location_id: string;
+  project_id: string | null;
+  starts_at: string;
+  ends_at: string;
+  title: string | null;
+  kind: BlockKind;
+  is_public: boolean;
+  public_title: string | null;
+  public_link: string | null;
+  color: string | null;
+  public_description: string | null;
+  created_by: string | null;
+}
+
 export interface Profile {
   id: string;
   email: string | null;

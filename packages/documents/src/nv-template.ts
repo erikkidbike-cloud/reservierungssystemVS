@@ -70,36 +70,50 @@ const L = {
   },
 } as const;
 
+// Brand green, matching apps/web/app/globals.css's --accent — the one place
+// this document's look and the console's look share a source of truth. Kept
+// as a literal here rather than imported: this package has no dependency on
+// the web app (and shouldn't grow one just for a colour).
+const BRAND = '#0b7a3b';
+
 const STYLES = `
-  @page { size: A4; margin: 18mm 18mm 20mm; }
+  @page { size: A4; margin: 20mm 18mm 20mm; }
   * { box-sizing: border-box; }
-  body { font: 10pt/1.45 "Helvetica Neue", Helvetica, Arial, sans-serif; color: #111; margin: 0; }
-  .head { display: flex; justify-content: space-between; align-items: flex-start;
-          border-bottom: 0.8pt solid #333; padding-bottom: 3mm; margin-bottom: 6mm; }
-  .head h1 { font-size: 16pt; margin: 0; }
-  .head .venue { text-align: right; font-size: 9pt; color: #444; white-space: pre-line; }
-  .parties { margin: 0 0 6mm; }
-  .parties table { border-collapse: collapse; }
+  body { font: 10pt/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1a1a1a; margin: 0; }
+  .head { display: flex; justify-content: space-between; align-items: flex-end;
+          border-bottom: 1.5pt solid ${BRAND}; padding-bottom: 4mm; margin-bottom: 8mm; }
+  .head h1 { font-size: 17pt; font-weight: 700; margin: 0; color: #111; letter-spacing: 0.2pt; }
+  .head .brand { font-size: 9pt; font-weight: 700; color: ${BRAND}; text-transform: uppercase;
+                 letter-spacing: 0.6pt; margin: 0 0 1.5mm; }
+  .head .venue { text-align: right; font-size: 9pt; color: #444; white-space: pre-line; line-height: 1.4; }
+  .parties { margin: 0 0 7mm; padding: 4mm 5mm; background: #f6f9f7; border-radius: 2mm; }
+  .parties p { margin: 0 0 2mm; }
+  .parties table { border-collapse: collapse; margin-top: 1mm; }
   .parties th { text-align: left; font-weight: 600; padding: 0.8mm 6mm 0.8mm 0;
                 vertical-align: top; color: #333; white-space: nowrap; }
   .parties td { padding: 0.8mm 0; vertical-align: top; }
-  .lede { margin: 0 0 6mm; }
-  .lede h2 { font-size: 11pt; margin: 0 0 1.5mm; }
-  ol.clauses { padding-left: 6mm; margin: 0 0 8mm; }
-  ol.clauses > li { margin: 0 0 4mm; page-break-inside: avoid; }
-  ol.clauses .ct { font-weight: 600; display: block; margin-bottom: 1mm; }
+  .lede { margin: 0 0 5mm; }
+  .lede h2 { font-size: 12pt; font-weight: 700; color: ${BRAND}; margin: 0 0 2mm; }
+  ol.clauses { list-style: none; counter-reset: clause; padding-left: 0; margin: 0 0 8mm; }
+  ol.clauses > li { counter-increment: clause; margin: 0 0 5mm; padding-left: 8mm; position: relative;
+                    page-break-inside: avoid; }
+  ol.clauses > li::before {
+    content: counter(clause) ".";
+    position: absolute; left: 0; top: 0; font-weight: 700; color: ${BRAND};
+  }
+  ol.clauses .ct { font-weight: 700; display: block; margin-bottom: 1.2mm; color: #111; }
   ol.clauses p { margin: 0 0 1.5mm; }
   ol.clauses ul { margin: 0 0 1.5mm; padding-left: 5mm; }
   table.kv { border-collapse: collapse; margin: 1.5mm 0; }
   table.kv th { text-align: left; font-weight: 500; color: #333; padding: 0.6mm 6mm 0.6mm 0;
                 vertical-align: top; white-space: nowrap; }
   table.kv td { padding: 0.6mm 0; vertical-align: top; }
-  .confirm { margin: 8mm 0 0; }
-  .sign { margin-top: 12mm; display: flex; gap: 10mm; }
-  .sign > div { flex: 1; border-top: 0.6pt solid #333; padding-top: 1.5mm;
+  .confirm { margin: 8mm 0 0; padding: 3mm 4mm; border-left: 2pt solid ${BRAND}; background: #f6f9f7; }
+  .sign { margin-top: 14mm; display: flex; gap: 10mm; }
+  .sign > div { flex: 1; border-top: 0.7pt solid #333; padding-top: 2mm;
                 font-size: 8.5pt; color: #444; }
-  .foot { margin-top: 10mm; padding-top: 3mm; border-top: 0.4pt solid #ccc;
-          font-size: 8pt; color: #555; }
+  .foot { margin-top: 12mm; padding-top: 3mm; border-top: 0.4pt solid #ccc;
+          font-size: 8pt; color: #666; }
   .foot p { margin: 0 0 1mm; }
 `;
 
@@ -223,7 +237,10 @@ export function buildNutzungsvereinbarungHtml(data: NvData, opts: RenderOptions 
 </head>
 <body>
 <div class="head">
-  <h1>${escapeHtml(t.title)}</h1>
+  <div>
+    <p class="brand">${escapeHtml(ORGANISATION.name)}</p>
+    <h1>${escapeHtml(t.title)}</h1>
+  </div>
   <div class="venue">${escapeHtml(venue)}</div>
 </div>
 

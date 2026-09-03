@@ -30,12 +30,12 @@ export const WE_STANDARD: TariffConfig = {
   personTiers: PERSON_TIERS_STD,
   surcharge: { type: 'window_or_weekend', amount: 35, windowStart: '09:00', windowEnd: '17:30' },
   extras: [
-    { id: 'parcours', price: 10, labelDe: 'Fahrradparcours', labelEn: 'Bike course' },
-    { id: 'grill', price: 10, labelDe: 'Grill', labelEn: 'Grill' },
-    { id: 'tisch', price: 10, labelDe: 'Tischtennisplatte', labelEn: 'Table tennis' },
+    { id: 'parcours', type: 'toggle', price: 10, labelDe: 'Fahrradparcours', labelEn: 'Bike course' },
+    { id: 'grill', type: 'toggle', price: 10, labelDe: 'Grill', labelEn: 'Grill' },
+    { id: 'tisch', type: 'toggle', price: 10, labelDe: 'Tischtennisplatte', labelEn: 'Table tennis' },
   ],
   bikePricePerUnit: 1,
-  caution: { type: 'we' },
+  caution: { type: 'we', personsThreshold: 50, amountInWindow: null, amountStandard: 200, amountHigh: 500 },
 };
 
 export const WI_STANDARD: TariffConfig = {
@@ -59,7 +59,7 @@ export const WA_STANDARD: TariffConfig = {
   ],
   surcharge: { type: 'none' },
   extras: [],
-  caution: { type: 'wa' },
+  caution: { type: 'wa', personsThreshold: 45, amountBelow: 50, amountAtOrAbove: 70 },
 };
 
 /** By location code, the standard (Normal) tariff. */

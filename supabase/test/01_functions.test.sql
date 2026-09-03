@@ -204,7 +204,8 @@ begin
   from information_schema.columns
   where table_name = 'public_availability';
 
-  perform assert_eq(cols, ARRAY['ends_at','kind','location_code','public_link','public_title','starts_at'],
+  perform assert_eq(cols, ARRAY['color','ends_at','kind','location_code','project_code',
+                                 'public_description','public_link','public_title','starts_at'],
                     'public_availability exposes only non-personal columns');
   perform assert_eq(
     (select count(*)::int from public_availability where kind = 'hold') >= 1,

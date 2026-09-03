@@ -107,7 +107,7 @@ export default async function BookPage({
   const [{ data: dayRows, error: dayError }, { data: rangeRows }] = await Promise.all([
     supabase
       .from('public_availability')
-      .select('starts_at, ends_at, kind')
+      .select('starts_at, ends_at, kind, public_title, public_link, color, public_description')
       .eq('location_code', location.code)
       .lt('starts_at', dayEnd.toISOString())
       .gt('ends_at', dayStart.toISOString())
@@ -133,7 +133,19 @@ export default async function BookPage({
     starts_at: string;
     ends_at: string;
     kind: DayBlock['kind'];
-  }>).map((r) => ({ startsAt: r.starts_at, endsAt: r.ends_at, kind: r.kind }));
+    public_title: string | null;
+    public_link: string | null;
+    color: string | null;
+    public_description: string | null;
+  }>).map((r) => ({
+    startsAt: r.starts_at,
+    endsAt: r.ends_at,
+    kind: r.kind,
+    publicTitle: r.public_title,
+    publicLink: r.public_link,
+    color: r.color,
+    publicDescription: r.public_description,
+  }));
 
   const bookedDates = new Set<string>();
   for (const r of (rangeRows ?? []) as Array<{ starts_at: string; ends_at: string }>) {

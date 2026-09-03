@@ -27,6 +27,57 @@ function extraLabel(cfg: TariffConfig, id: string, lang: 'de' | 'en'): string {
   return (lang === 'en' ? ex.labelEn : ex.labelDe) || ex.id;
 }
 
+interface ExtrasTotal {
+  extrasCost: number;
+  extrasSelected: string[];
+  bikeCount: number;
+}
+
+/**
+ * Toggle + quantity extras, plus the legacy WE bike fields — computed once and
+ * shared by both pricing models. Extras used to be multiplier-model-only
+ * (person_band/WA never processed them, always contributing 0); now that
+ * extras are admin-editable per location regardless of model, EVERY model
+ * must actually charge whatever is configured, or an admin adding an extra to
+ * a person_band tariff would see it in the editor but never on an invoice.
+ */
+function computeExtras(cfg: TariffConfig, req: PriceRequest, lang: 'de' | 'en'): ExtrasTotal {
+  let extrasCost = 0;
+  const extrasSelected: string[] = [];
+
+  for (const id of req.extras ?? []) {
+    const ex = cfg.extras.find((e) => e.id === id);
+    if (!ex || ex.type !== 'toggle') continue;
+    extrasCost += ex.price;
+    extrasSelected.push(extraLabel(cfg, id, lang));
+  }
+
+  for (const ex of cfg.extras) {
+    if (ex.type !== 'quantity') continue;
+    const raw = req.extraQuantities?.[ex.id];
+    if (!raw) continue;
+    const qty = Math.min(ex.max ?? Infinity, Math.max(ex.min ?? 0, Math.round(Number(raw) || 0)));
+    if (qty <= 0) continue;
+    extrasCost += qty * ex.pricePerUnit;
+    extrasSelected.push(`${qty}x ${lang === 'en' ? ex.labelEn : ex.labelDe}`);
+  }
+
+  // Legacy WE field: 1 € per bike across all size buckets. Kept separate from
+  // the generic quantity-extra mechanism above (rather than migrated into it)
+  // so existing bookings' stored `bikes` JSON keeps meaning what it always
+  // meant — see TariffConfig.bikePricePerUnit.
+  let bikeCount = 0;
+  if (cfg.bikePricePerUnit != null) {
+    bikeCount = bikeTotal(req.bikes);
+    if (bikeCount > 0) {
+      extrasCost += bikeCount * cfg.bikePricePerUnit;
+      extrasSelected.push(lang === 'en' ? `${bikeCount}x Kids bike(s)` : `${bikeCount}x Kinderfahrrad`);
+    }
+  }
+
+  return { extrasCost, extrasSelected, bikeCount };
+}
+
 /** Label like "≤30", or "≥46" for an open-ended (sentinel max) top band. */
 function boundLabel(max: number, prevMax: number): string {
   return max >= 9999 ? `≥${prevMax + 1}` : `≤${max}`;
@@ -90,7 +141,8 @@ export function computePrice(req: PriceRequest, cfg: TariffConfig): PriceResult 
       : persons
         ? '≥46'
         : '';
-    const total = tier.base + personsAdd;
+    const { extrasCost, extrasSelected, bikeCount } = computeExtras(cfg, req, lang);
+    const total = tier.base + personsAdd + extrasCost;
 
     return {
       currency: 'EUR',
@@ -101,9 +153,9 @@ export function computePrice(req: PriceRequest, cfg: TariffConfig): PriceResult 
       base: tier.base,
       personsDelta: personsAdd,
       timeSurcharge: 0,
-      extrasCost: 0,
-      extrasSelected: [],
-      bikeCount: 0,
+      extrasCost,
+      extrasSelected,
+      bikeCount,
       total,
       caution,
     };
@@ -134,26 +186,7 @@ export function computePrice(req: PriceRequest, cfg: TariffConfig): PriceResult 
   const personsDelta = basePlusPersons - base;
   const timeAdd = computeSurcharge(cfg.surcharge, start, end);
 
-  const selectedIds = req.extras ?? [];
-  let extrasCost = 0;
-  const extrasSelected: string[] = [];
-  for (const id of selectedIds) {
-    const ex = cfg.extras.find((e) => e.id === id);
-    if (!ex) continue;
-    extrasCost += ex.price;
-    extrasSelected.push(extraLabel(cfg, id, lang));
-  }
-
-  // Bikes (WE): 1 € per bike across all size buckets.
-  let bikes = 0;
-  if (cfg.bikePricePerUnit != null) {
-    bikes = bikeTotal(req.bikes);
-    if (bikes > 0) {
-      extrasCost += bikes * cfg.bikePricePerUnit;
-      extrasSelected.push(lang === 'en' ? `${bikes}x Kids bike(s)` : `${bikes}x Kinderfahrrad`);
-    }
-  }
-
+  const { extrasCost, extrasSelected, bikeCount } = computeExtras(cfg, req, lang);
   const total = basePlusPersons + timeAdd + extrasCost;
 
   return {
@@ -167,7 +200,7 @@ export function computePrice(req: PriceRequest, cfg: TariffConfig): PriceResult 
     timeSurcharge: timeAdd,
     extrasCost,
     extrasSelected,
-    bikeCount: bikes,
+    bikeCount,
     total,
     caution,
   };

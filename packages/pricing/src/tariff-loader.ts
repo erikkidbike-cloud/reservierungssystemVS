@@ -126,6 +126,12 @@ function parseSurcharge(v: unknown): SurchargeRule {
   throw new TariffConfigError(`unknown surcharge.type ${JSON.stringify(type)}`);
 }
 
+/** Optional numeric field: absent/null → default; present → validated. */
+function numOr(v: unknown, path: string, fallback: number): number {
+  if (v === undefined || v === null) return fallback;
+  return num(v, path);
+}
+
 function parseExtras(v: unknown): ExtraDef[] {
   if (v === undefined || v === null) return [];
   const raw = arr(v, 'extras');
@@ -135,19 +141,55 @@ function parseExtras(v: unknown): ExtraDef[] {
     const id = str(e.id, `extras[${i}].id`);
     if (seen.has(id)) throw new TariffConfigError(`duplicate extra id ${JSON.stringify(id)}`);
     seen.add(id);
-    return {
-      id,
-      price: num(e.price, `extras[${i}].price`),
-      labelDe: str(e.labelDe, `extras[${i}].labelDe`),
-      labelEn: str(e.labelEn, `extras[${i}].labelEn`),
-    };
+    const labelDe = str(e.labelDe, `extras[${i}].labelDe`);
+    const labelEn = str(e.labelEn, `extras[${i}].labelEn`);
+
+    if (e.type === 'quantity') {
+      const pricePerUnit = num(e.pricePerUnit, `extras[${i}].pricePerUnit`);
+      const min = e.min === undefined || e.min === null ? undefined : num(e.min, `extras[${i}].min`);
+      const max = e.max === undefined || e.max === null ? undefined : num(e.max, `extras[${i}].max`);
+      if (min !== undefined && max !== undefined && min > max) {
+        throw new TariffConfigError(`extras[${i}]: min (${min}) must be <= max (${max})`);
+      }
+      return { id, type: 'quantity', pricePerUnit, min, max, labelDe, labelEn };
+    }
+
+    // No `type` at all is the pre-existing shape (every extra was a toggle);
+    // kept accepted so rows written before this field existed still load.
+    const price = num(e.price, `extras[${i}].price`);
+    return { id, type: 'toggle', price, labelDe, labelEn };
   });
 }
 
 function parseCaution(v: unknown): CautionRule {
   if (!isRecord(v)) throw new TariffConfigError('caution must be an object');
   const type = str(v.type, 'caution.type');
-  if (type === 'none' || type === 'we' || type === 'wa') return { type };
+
+  if (type === 'none') return { type: 'none' };
+
+  if (type === 'we') {
+    const amountInWindow =
+      v.amountInWindow === undefined || v.amountInWindow === null
+        ? null
+        : num(v.amountInWindow, 'caution.amountInWindow');
+    return {
+      type: 'we',
+      personsThreshold: numOr(v.personsThreshold, 'caution.personsThreshold', 50),
+      amountInWindow,
+      amountStandard: numOr(v.amountStandard, 'caution.amountStandard', 200),
+      amountHigh: numOr(v.amountHigh, 'caution.amountHigh', 500),
+    };
+  }
+
+  if (type === 'wa') {
+    return {
+      type: 'wa',
+      personsThreshold: numOr(v.personsThreshold, 'caution.personsThreshold', 45),
+      amountBelow: numOr(v.amountBelow, 'caution.amountBelow', 50),
+      amountAtOrAbove: numOr(v.amountAtOrAbove, 'caution.amountAtOrAbove', 70),
+    };
+  }
+
   throw new TariffConfigError(`unknown caution.type ${JSON.stringify(type)}`);
 }
 

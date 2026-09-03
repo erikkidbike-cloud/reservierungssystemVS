@@ -28,11 +28,8 @@ import {
 } from '@/lib/auth';
 import { transitionFor } from '@vs/domain';
 import { sendMail } from '@/lib/mail';
-import {
-  requestReceivedToCustomer,
-  approvedToCustomer,
-  type BookingMailContext,
-} from '@/lib/mail-templates';
+import { requestReceivedToCustomer, approvedToCustomer } from '@/lib/mail-send';
+import type { BookingMailContext } from '@/lib/mail-vars';
 import type { TariffType } from '@/lib/db-types';
 
 /** Fields worth handing back so a rejected form doesn't have to be retyped. */
@@ -69,10 +66,24 @@ function backWithError(formData: FormData, code: string): never {
   for (const extra of formData.getAll('extras')) {
     params.append('extras', String(extra));
   }
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith('extra_qty_') && String(value)) params.set(key, String(value));
+  }
   for (const flag of ['approve', 'notify']) {
     if (formData.get(flag)) params.set(flag, 'on');
   }
   redirect(`/admin/bookings/new?${params.toString()}`);
+}
+
+/** Reads every `extra_qty_<id>` field into { id: quantity }, dropping zero/blank entries. */
+function readExtraQuantities(formData: FormData): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith('extra_qty_')) continue;
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) out[key.slice('extra_qty_'.length)] = n;
+  }
+  return out;
 }
 
 export async function createInternalBooking(formData: FormData): Promise<void> {
@@ -103,6 +114,7 @@ export async function createInternalBooking(formData: FormData): Promise<void> {
   const tariffType = (String(formData.get('tariff_type') ?? 'standard') ||
     'standard') as TariffType;
   const extras = formData.getAll('extras').map(String).filter(Boolean);
+  const extraQuantities = readExtraQuantities(formData);
   const bikeCount = Number(formData.get('bikes') ?? 0);
   const bikes = Number.isFinite(bikeCount) && bikeCount > 0 ? { total: bikeCount } : null;
 
@@ -120,7 +132,7 @@ export async function createInternalBooking(formData: FormData): Promise<void> {
   try {
     priced = await quote(
       location,
-      { start, end, persons, extras, bikes: bikes ?? undefined, lang },
+      { start, end, persons, extras, extraQuantities, bikes: bikes ?? undefined, lang },
       tariffType,
       { enforceLeadTime: false },
     );
@@ -230,7 +242,11 @@ export async function createInternalBooking(formData: FormData): Promise<void> {
       customerPhone: String(formData.get('phone') ?? '') || null,
       lang,
     };
-    await sendMail(finalStatus === 'approved' ? approvedToCustomer(ctx) : requestReceivedToCustomer(ctx));
+    const msg =
+      finalStatus === 'approved'
+        ? await approvedToCustomer(admin, ctx)
+        : await requestReceivedToCustomer(admin, ctx);
+    if (msg) await sendMail(msg);
   }
 
   revalidatePath('/admin/bookings');

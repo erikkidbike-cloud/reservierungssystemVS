@@ -10,11 +10,8 @@ import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
 import { loadLocation, parseBerlinLocal, quote } from '@/lib/booking-pricing';
 import { sendMail } from '@/lib/mail';
-import {
-  newRequestToLocation,
-  requestReceivedToCustomer,
-  type BookingMailContext,
-} from '@/lib/mail-templates';
+import { newRequestToLocation, requestReceivedToCustomer } from '@/lib/mail-send';
+import type { BookingMailContext } from '@/lib/mail-vars';
 import { siteOriginFromRequest, absoluteUrl } from '@/lib/site-url';
 import type { TariffType } from '@/lib/db-types';
 
@@ -38,6 +35,7 @@ interface Body {
   to?: string;
   persons?: number | string;
   extras?: string[];
+  extra_quantities?: Record<string, number>;
   bikes?: Record<string, number>;
   event_type?: string;
   message?: string;
@@ -98,7 +96,7 @@ export async function POST(request: Request) {
   try {
     priced = await quote(
       location,
-      { start, end, persons, extras: body.extras, bikes: body.bikes, lang },
+      { start, end, persons, extras: body.extras, extraQuantities: body.extra_quantities, bikes: body.bikes, lang },
       body.tariff_type ?? 'standard',
     );
   } catch (err) {
@@ -110,7 +108,8 @@ export async function POST(request: Request) {
   }
 
   const price = priced.price;
-  const { data, error } = await adminClient().rpc('create_booking_request', {
+  const admin = adminClient();
+  const { data, error } = await admin.rpc('create_booking_request', {
     p_location_code: code,
     p_starts_at: start.toISOString(),
     p_ends_at: end.toISOString(),
@@ -186,12 +185,14 @@ export async function POST(request: Request) {
     lang,
   };
 
-  await Promise.all([
-    location.cc_emails?.length
-      ? sendMail(newRequestToLocation(ctx, location.cc_emails))
-      : Promise.resolve(),
-    sendMail(requestReceivedToCustomer(ctx)),
+  // mail_templates' RLS requires auth.uid() is not null (0013_mail_templates.sql)
+  // — this route serves anonymous visitors, so template lookups go through
+  // adminClient() like every other read this route needs (locations, tariffs).
+  const [locationMsg, customerMsg] = await Promise.all([
+    location.cc_emails?.length ? newRequestToLocation(admin, ctx, location.cc_emails) : null,
+    requestReceivedToCustomer(admin, ctx),
   ]);
+  await Promise.all([locationMsg ? sendMail(locationMsg) : null, customerMsg ? sendMail(customerMsg) : null]);
 
   return NextResponse.json({
     ok: true,

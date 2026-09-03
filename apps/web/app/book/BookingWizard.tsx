@@ -38,6 +38,11 @@ export interface DayBlock {
   startsAt: string;
   endsAt: string;
   kind: 'busy' | 'hold' | 'project';
+  /** Only ever set for kind='project' (a special event — see /admin/events). */
+  publicTitle?: string | null;
+  publicLink?: string | null;
+  color?: string | null;
+  publicDescription?: string | null;
 }
 
 export interface PublicLocation {
@@ -111,6 +116,7 @@ export default function BookingWizard({
   const [persons, setPersons] = useState('');
   const [eventType, setEventType] = useState('');
   const [extras, setExtras] = useState<string[]>([]);
+  const [extraQuantities, setExtraQuantities] = useState<Record<string, string>>({});
   const [bikeCount, setBikeCount] = useState('');
 
   const [salutation, setSalutation] = useState('');
@@ -125,6 +131,7 @@ export default function BookingWizard({
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<{ from: string; to: string } | null>(null);
+  const [activeEvent, setActiveEvent] = useState<DayBlock | null>(null);
 
   const start = parseLocalDateTime(`${date}T${fromTime}`);
   const end = parseLocalDateTime(`${date}T${toTime}`);
@@ -156,13 +163,30 @@ export default function BookingWizard({
   const allErrors: ValidationCode[] = overlapsExisting ? [...timeErrors, 'overlap'] : timeErrors;
   const timeOk = allErrors.length === 0;
 
+  const extraQuantitiesNum = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [id, v] of Object.entries(extraQuantities)) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) out[id] = n;
+    }
+    return out;
+  }, [extraQuantities]);
+
   const price = useMemo(() => {
     if (!tariffConfig || !start || !end || !timeOk || personsNum <= 0) return null;
     return computePrice(
-      { start, end, persons: personsNum, extras, bikes: bikeCount ? { total: Number(bikeCount) || 0 } : undefined, lang },
+      {
+        start,
+        end,
+        persons: personsNum,
+        extras,
+        extraQuantities: extraQuantitiesNum,
+        bikes: bikeCount ? { total: Number(bikeCount) || 0 } : undefined,
+        lang,
+      },
       tariffConfig,
     );
-  }, [tariffConfig, start, end, timeOk, personsNum, extras, bikeCount, lang]);
+  }, [tariffConfig, start, end, timeOk, personsNum, extras, extraQuantitiesNum, bikeCount, lang]);
 
   function toggleExtra(id: string) {
     setExtras((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -195,6 +219,7 @@ export default function BookingWizard({
           to: `${date}T${toTime}`,
           persons: personsNum,
           extras,
+          extra_quantities: extraQuantitiesNum,
           bikes: bikeCount ? { total: Number(bikeCount) || 0 } : undefined,
           event_type: eventType || undefined,
           message: message || undefined,
@@ -346,12 +371,25 @@ export default function BookingWizard({
               const left = ((Math.max(bs, gridStartMin) - gridStartMin) / (gridEndMin - gridStartMin)) * 100;
               const width = ((Math.min(be, gridEndMin) - Math.max(bs, gridStartMin)) / (gridEndMin - gridStartMin)) * 100;
               if (width <= 0) return null;
+              const clickable = b.kind === 'project' && (b.publicLink || b.publicDescription || b.publicTitle);
               return (
                 <div
                   key={i}
                   className={`daybar__block daybar__block--${b.kind}`}
-                  style={{ left: `${left}%`, width: `${width}%` }}
-                  title={b.kind}
+                  style={{ left: `${left}%`, width: `${width}%`, background: b.color ?? undefined, cursor: clickable ? 'pointer' : undefined }}
+                  title={b.publicTitle ?? b.kind}
+                  onClick={
+                    clickable
+                      ? (e) => {
+                          e.stopPropagation();
+                          if (b.publicLink && !b.publicDescription) {
+                            window.open(b.publicLink, '_blank', 'noopener');
+                          } else {
+                            setActiveEvent(b);
+                          }
+                        }
+                      : undefined
+                  }
                 />
               );
             })}
@@ -367,6 +405,24 @@ export default function BookingWizard({
             <span>{minToHHMM(gridStartMin)}</span>
             <span>{minToHHMM(gridEndMin === 24 * 60 ? 23 * 60 + 59 : gridEndMin)}</span>
           </div>
+
+          {activeEvent && (
+            <div className="panel" style={{ marginTop: 8 }}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <strong>{activeEvent.publicTitle ?? (lang === 'en' ? 'Event' : 'Veranstaltung')}</strong>
+                <button type="button" className="secondary" onClick={() => setActiveEvent(null)}>
+                  ×
+                </button>
+              </div>
+              {activeEvent.publicDescription && <p style={{ marginBottom: 8 }}>{activeEvent.publicDescription}</p>}
+              {activeEvent.publicLink && (
+                <a href={activeEvent.publicLink} target="_blank" rel="noopener noreferrer">
+                  {activeEvent.publicLink}
+                </a>
+              )}
+            </div>
+          )}
+
           <div className="daybar__legend">
             <span>
               <i style={{ background: 'var(--muted)' }} /> {t.busySlot}
@@ -421,17 +477,31 @@ export default function BookingWizard({
           {tariffConfig && (tariffConfig.extras.length > 0 || tariffConfig.bikePricePerUnit != null) && (
             <>
               <h3>{t.extras}</h3>
-              {tariffConfig.extras.map((x) => (
-                <label key={x.id} style={{ fontWeight: 400, color: 'var(--fg)', marginBottom: 4 }}>
-                  <input
-                    type="checkbox"
-                    checked={extras.includes(x.id)}
-                    onChange={() => toggleExtra(x.id)}
-                    style={{ width: 'auto', display: 'inline', marginRight: 8 }}
-                  />
-                  {(lang === 'en' ? x.labelEn : x.labelDe)} ({x.price.toFixed(2)} €)
-                </label>
-              ))}
+              {tariffConfig.extras.map((x) =>
+                x.type === 'quantity' ? (
+                  <label key={x.id}>
+                    {lang === 'en' ? x.labelEn : x.labelDe} ({x.pricePerUnit.toFixed(2)} €{' '}
+                    {lang === 'en' ? 'each' : 'pro Einheit'})
+                    <input
+                      type="number"
+                      min={x.min ?? 0}
+                      max={x.max}
+                      value={extraQuantities[x.id] ?? ''}
+                      onChange={(e) => setExtraQuantities((prev) => ({ ...prev, [x.id]: e.target.value }))}
+                    />
+                  </label>
+                ) : (
+                  <label key={x.id} style={{ fontWeight: 400, color: 'var(--fg)', marginBottom: 4 }}>
+                    <input
+                      type="checkbox"
+                      checked={extras.includes(x.id)}
+                      onChange={() => toggleExtra(x.id)}
+                      style={{ width: 'auto', display: 'inline', marginRight: 8 }}
+                    />
+                    {(lang === 'en' ? x.labelEn : x.labelDe)} ({x.price.toFixed(2)} €)
+                  </label>
+                ),
+              )}
               {tariffConfig.bikePricePerUnit != null && (
                 <label>
                   {t.bikesLabel}

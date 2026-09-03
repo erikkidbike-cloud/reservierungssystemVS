@@ -267,29 +267,35 @@ alongside the production one.
 
 ## 7. The one thing that needs scheduling: expired holds
 
-`expire_holds()` exists (`0007`) but nothing calls it on a schedule yet. Two
-ways to fix that in Supabase, either is fine:
+`expire_holds()` exists (`0007`) but nothing calls it on a schedule yet. Run
+`supabase/post-deploy/schedule-expire-holds.sql` in the SQL Editor — that file
+is the canonical version of this step and explains the options in its own
+comments.
 
-- **pg_cron** (simplest): **Database → Extensions** → enable `pg_cron`, then in
-  the SQL Editor:
-  ```sql
-  select cron.schedule('expire-holds-hourly', '0 * * * *', $$select expire_holds();$$);
-  ```
-- **A scheduled Edge Function** if you'd rather trigger it from outside the
-  database (e.g. to also send a notification when a hold expires) — more setup,
-  more flexibility. Only worth it once expiry needs a side effect beyond the
-  status flip.
+**"ERROR: 3F000: schema "cron" does not exist"** means the extension itself
+was never turned on — the `cron` schema is created BY enabling it, not by
+running SQL against it. Fix: **Database → Extensions** (in the Supabase
+dashboard, not the SQL Editor) → search for `pg_cron` → toggle it on. THEN run
+the SQL file. To confirm it's actually enabled before retrying:
+```sql
+select * from pg_extension where extname = 'pg_cron';
+```
+An empty result means it's still off.
+
+If you'd rather trigger expiry from outside the database (e.g. to also send a
+notification when a hold expires), a scheduled Edge Function is the
+alternative — more setup, more flexibility, only worth it once expiry needs a
+side effect beyond the status flip.
 
 ## What's still genuinely blocked after this
 
-Nothing about Supabase itself — once the steps above are done, Phase 1's
-database and the admin console's read/write paths are live. What remains is
-application work already scoped in `docs/06-handoff-backlog.md`: the public
-booking calendar and wizard (2.1/2.2), wiring `renderAgreements()` into an
-actual "send the Nutzungsvereinbarung" action once a booking is approved (3.1
-is the rendering pipeline; nothing calls it from the booking flow yet), and the
-WA deposit-clause question in `docs/05-open-questions.md` (§18) before any WA
-agreement goes out for real.
+Nothing about Supabase itself, and by now (see `docs/10-system-assessment.md`)
+very little about the application either — the public booking flow, signing,
+tasks, payments and mail are all wired end to end. What's left is the
+Sammel-Nutzungsvereinbarung (blocked on a source document this project
+doesn't have — `docs/06-handoff-backlog.md` item 3.2) and the historical Excel
+import (backlog 1.7, blocked on the WA/WI column layouts) — neither is a
+Supabase setup step.
 
 ## Appendix — adding Microsoft/Entra ID later
 

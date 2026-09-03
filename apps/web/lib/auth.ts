@@ -84,6 +84,21 @@ export function canManagePayments(role: AppRole | undefined): boolean {
   return role === 'admin' || role === 'finance';
 }
 
+/** Special events (blocks) — matches `blocks_write` RLS (admin everywhere, location_manager their own). */
+export function canManageEvents(role: AppRole | undefined): boolean {
+  return canApprove(role);
+}
+
+/** Event categories (projects) — matches `projects_write` RLS (admin only; shared across locations). */
+export function canManageCategories(role: AppRole | undefined): boolean {
+  return role === 'admin';
+}
+
+/** Mail wording — matches `mail_templates_write` RLS (admin only; shared across locations). */
+export function canManageMailTemplates(role: AppRole | undefined): boolean {
+  return role === 'admin';
+}
+
 /**
  * Editing the Nutzungsvereinbarung text is scoped like bookings (admin
  * everywhere, location_manager for their own location) rather than restricted

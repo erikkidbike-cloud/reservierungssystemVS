@@ -108,3 +108,64 @@ test('bikePricePerUnit is optional and preserved', () => {
   const withoutBikes = parseTariffConfig(JSON.parse(JSON.stringify(WI_STANDARD)));
   assert.equal(withoutBikes.bikePricePerUnit, undefined);
 });
+
+// --- Backward compatibility: rows written before extras/caution grew fields -
+
+test('an extra with no "type" at all is treated as a toggle (pre-existing rows)', () => {
+  const cfg = parseTariffConfig({
+    ...JSON.parse(JSON.stringify(WI_STANDARD)),
+    extras: [{ id: 'old', price: 5, labelDe: 'Alt', labelEn: 'Old' }],
+  });
+  assert.deepEqual(cfg.extras[0], { id: 'old', type: 'toggle', price: 5, labelDe: 'Alt', labelEn: 'Old' });
+});
+
+test('a quantity extra requires pricePerUnit and accepts optional min/max', () => {
+  const cfg = parseTariffConfig({
+    ...JSON.parse(JSON.stringify(WI_STANDARD)),
+    extras: [{ id: 'chairs', type: 'quantity', pricePerUnit: 2, min: 1, max: 10, labelDe: 'Stühle', labelEn: 'Chairs' }],
+  });
+  assert.deepEqual(cfg.extras[0], {
+    id: 'chairs',
+    type: 'quantity',
+    pricePerUnit: 2,
+    min: 1,
+    max: 10,
+    labelDe: 'Stühle',
+    labelEn: 'Chairs',
+  });
+});
+
+test('rejects a quantity extra whose min exceeds its max', () => {
+  assert.throws(
+    () =>
+      parseTariffConfig({
+        ...JSON.parse(JSON.stringify(WI_STANDARD)),
+        extras: [{ id: 'chairs', type: 'quantity', pricePerUnit: 2, min: 10, max: 1, labelDe: 'x', labelEn: 'x' }],
+      }),
+    /min \(10\) must be <= max \(1\)/,
+  );
+});
+
+test('a "we" caution rule with no amount fields defaults to the historical amounts', () => {
+  const cfg = parseTariffConfig({ ...JSON.parse(JSON.stringify(WI_STANDARD)), caution: { type: 'we' } });
+  assert.deepEqual(cfg.caution, {
+    type: 'we',
+    personsThreshold: 50,
+    amountInWindow: null,
+    amountStandard: 200,
+    amountHigh: 500,
+  });
+});
+
+test('a "wa" caution rule with no amount fields defaults to the historical amounts', () => {
+  const cfg = parseTariffConfig({ ...JSON.parse(JSON.stringify(WI_STANDARD)), caution: { type: 'wa' } });
+  assert.deepEqual(cfg.caution, { type: 'wa', personsThreshold: 45, amountBelow: 50, amountAtOrAbove: 70 });
+});
+
+test('caution amounts are read from the config when present', () => {
+  const cfg = parseTariffConfig({
+    ...JSON.parse(JSON.stringify(WI_STANDARD)),
+    caution: { type: 'wa', personsThreshold: 20, amountBelow: 10, amountAtOrAbove: 30 },
+  });
+  assert.deepEqual(cfg.caution, { type: 'wa', personsThreshold: 20, amountBelow: 10, amountAtOrAbove: 30 });
+});
