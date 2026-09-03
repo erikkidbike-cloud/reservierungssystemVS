@@ -143,9 +143,25 @@ the app so the `profiles` row exists, then run this, then reload `/admin`).
 - **anon / public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - **service_role key** (click to reveal) → `SUPABASE_SERVICE_ROLE_KEY`
 
-The service role key **bypasses every RLS policy** — treat it like a root
-password. It belongs only in server-side environment variables, never in
-anything that reaches the browser, and never committed to git.
+Newer projects show a different-looking **"Publishable and secret API keys"**
+tab instead of (or alongside) the classic anon/service_role one — Supabase
+renamed these, but they're the same two roles under a new name, and every
+Supabase client library accepts either format identically:
+- **Publishable key** (`sb_publishable_...`) is the anon key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- **Secret key** (`sb_secret_...`, click the eye icon to reveal it) is the
+  service_role key → `SUPABASE_SERVICE_ROLE_KEY`
+
+If your project shows both tabs, use whichever is present — don't mix a
+publishable key from one tab with a secret key from the other; they're
+generated together as a pair.
+
+Whichever naming your project shows, the **secret/service_role key bypasses
+every RLS policy** — treat it like a root password. It belongs only in
+server-side environment variables, never in anything that reaches the browser,
+and never committed to git. Pasting the anon/publishable key into
+`SUPABASE_SERVICE_ROLE_KEY` by mistake is a common way to hit a confusing
+`permission denied for table ...` error later — the app can talk to Supabase
+fine, it just doesn't have the privilege it thinks it has.
 
 ## 5. Deploy it
 
