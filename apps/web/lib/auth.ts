@@ -86,6 +86,45 @@ export function canManageAgreements(role: AppRole | undefined): boolean {
 }
 
 /**
+ * The location ids this user may act on, or `null` for "all of them".
+ *
+ * Needed wherever a write bypasses RLS. Creating a booking does: it goes
+ * through create_booking_request(), which only service_role may execute, so the
+ * `bookings_manager_write` policy never gets a chance to run and this check
+ * takes its place. It deliberately mirrors has_location() in 0005_rls.sql —
+ * admin and finance see everything, everyone else only their memberships — so
+ * the two cannot disagree about who may touch what.
+ */
+export async function actionableLocationIds(): Promise<string[] | null> {
+  const supabase = serverClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const role = (profile as Pick<Profile, 'role'> | null)?.role;
+  if (role === 'admin' || role === 'finance') return null;
+
+  const { data } = await supabase
+    .from('user_locations')
+    .select('location_id')
+    .eq('user_id', user.id);
+
+  return (data ?? []).map((r) => (r as { location_id: string }).location_id);
+}
+
+/** Whether this user may create or change bookings at a given location. */
+export function mayActOnLocation(allowed: string[] | null, locationId: string): boolean {
+  return allowed === null || allowed.includes(locationId);
+}
+
+/**
  * Which relation to read bookings from for this role.
  *
  * Staff and caretakers have no SELECT policy on `bookings` at all — they read

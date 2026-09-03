@@ -9,10 +9,26 @@
 import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
 import { loadLocation, parseBerlinLocal, quote } from '@/lib/booking-pricing';
+import { sendMail } from '@/lib/mail';
+import {
+  newRequestToLocation,
+  requestReceivedToCustomer,
+  type BookingMailContext,
+} from '@/lib/mail-templates';
 import type { TariffType } from '@/lib/db-types';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+/**
+ * Absolute link back into the console for the notification mail. Prefers the
+ * configured public URL and falls back to the request's own origin, so a
+ * preview deploy links to itself rather than to production.
+ */
+function absoluteUrl(request: Request, path: string): string {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+  return new URL(path, base).toString();
+}
 
 /** Machine codes from create_booking_request → HTTP status + message key. */
 const DB_ERRORS: Record<string, { status: number; code: string }> = {
@@ -154,8 +170,36 @@ export async function POST(request: Request) {
 
   const booking = Array.isArray(data) ? data[0] : data;
 
-  // TODO (backlog 2.4): send the notification mail to the location's cc_emails
-  // and the confirmation to the customer.
+  // Notification is best-effort and deliberately after the insert: the slot is
+  // held whether or not the mail leaves the building (see lib/mail.ts). Awaited
+  // rather than fired and forgotten, because a serverless function that has
+  // already returned may be frozen before fetch completes.
+  const ctx: BookingMailContext = {
+    locationName: location.name,
+    locationCode: location.code,
+    startsAt: start,
+    endsAt: end,
+    persons,
+    eventType: body.event_type ?? null,
+    priceTotal: price?.total ?? null,
+    caution: price?.caution ?? null,
+    message: body.message ?? null,
+    customerName:
+      [body.first_name, body.last_name].filter(Boolean).join(' ').trim() || email,
+    customerEmail: email,
+    customerPhone: body.phone ?? null,
+    holdExpiresAt: booking?.hold_expires_at ?? null,
+    adminUrl: booking?.id ? absoluteUrl(request, `/admin/bookings/${booking.id}`) : null,
+    lang,
+  };
+
+  await Promise.all([
+    location.cc_emails?.length
+      ? sendMail(newRequestToLocation(ctx, location.cc_emails))
+      : Promise.resolve(),
+    sendMail(requestReceivedToCustomer(ctx)),
+  ]);
+
   return NextResponse.json({
     ok: true,
     booking: {
