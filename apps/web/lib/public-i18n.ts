@@ -29,12 +29,21 @@ export interface PublicCopy {
   lastName: string;
   email: string;
   phone: string;
+  street: string;
+  house: string;
+  zip: string;
+  city: string;
   organization: string;
   type: string;
   bikesLabel: string;
   extras: string;
   message: string;
   accept: string;
+  waitlistBtn: string;
+  waitlistTitle: string;
+  waitlistLead: string;
+  waitlistSuccess: string;
+  btnJoinWaitlist: string;
   overlapWarning: string;
   conflict: string;
   shortTermWarning: string;
@@ -149,12 +158,21 @@ export const I18N: Record<Lang, PublicCopy> = {
     lastName: 'Nachname',
     email: 'E-Mail',
     phone: 'Telefon',
+    street: 'Straße',
+    house: 'Hausnummer',
+    zip: 'Postleitzahl',
+    city: 'Stadt / Ort',
     organization: 'Einrichtung / Organisation (optional)',
     type: 'Art der Feier',
     bikesLabel: BIKE_LABEL.de,
     extras: 'Extras',
     message: 'Nachricht (optional)',
     accept: 'Ich habe die wesentlichen Bedingungen gelesen und akzeptiere sie.',
+    waitlistBtn: 'Auf die Warteliste setzen',
+    waitlistTitle: 'Auf Warteliste eintragen',
+    waitlistLead: 'Dieser Termin ist bereits belegt. Hinterlassen Sie Ihre Kontaktdaten — falls der Termin frei wird, melden wir uns.',
+    waitlistSuccess: 'Vielen Dank! Sie wurden auf die Warteliste gesetzt.',
+    btnJoinWaitlist: 'In Warteliste eintragen',
     overlapWarning: 'In diesem Zeitraum liegt bereits eine Reservierung vor. Eine Buchung ist leider nicht möglich.',
     conflict: 'Ungültige Zeit (Ende vor Beginn) oder Zeitraum zu kurz (min. 30 Min).',
     shortTermWarning:
@@ -216,12 +234,21 @@ export const I18N: Record<Lang, PublicCopy> = {
     lastName: 'Last name',
     email: 'Email',
     phone: 'Phone number',
+    street: 'Street',
+    house: 'House number',
+    zip: 'Postal code',
+    city: 'City',
     organization: 'Organization (optional)',
     type: 'Type of event',
     bikesLabel: BIKE_LABEL.en,
     extras: 'Extras',
     message: 'Message (optional)',
     accept: 'I have read and accept the key conditions.',
+    waitlistBtn: 'Join waitlist',
+    waitlistTitle: 'Join the waitlist',
+    waitlistLead: 'This time slot is already taken. Leave your contact details — if it becomes available, we will contact you.',
+    waitlistSuccess: 'Thank you! You have been added to the waitlist.',
+    btnJoinWaitlist: 'Join waitlist',
     overlapWarning: 'There is already a reservation in this time slot. Booking is not possible.',
     conflict: 'Invalid time (end before start) or too short (min. 30 mins).',
     shortTermWarning:

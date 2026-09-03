@@ -106,6 +106,7 @@ export interface StaffBooking {
   persons: number | null;
   event_type: string | null;
   status: BookingStatus;
+  has_overlap?: boolean;
 }
 
 /** Full booking row — only reachable by admin / location_manager / finance. */
@@ -125,6 +126,8 @@ export interface Booking extends StaffBooking {
   hold_expires_at: string | null;
   message: string | null;
   internal_notes: string | null;
+  allow_overlap?: boolean;
+  has_overlap?: boolean;
   created_at: string;
 }
 
@@ -199,4 +202,40 @@ export interface TariffRow {
   valid_from: string;
   valid_to: string | null;
   is_active: boolean;
+}
+
+export type ExperienceRating = 'do_not_rent' | 'negative' | 'neutral' | 'positive';
+
+export interface CustomerExperience {
+  id: string;
+  customer_id: string | null;
+  match_first_name: string | null;
+  match_last_name: string | null;
+  match_organization: string | null;
+  match_address: string | null;
+  match_phone: string | null;
+  match_email: string | null;
+  alt_name: string | null;
+  rating: ExperienceRating;
+  surcharge_or_discount: number | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WaitlistRow {
+  id: string;
+  location_id: string;
+  starts_at: string;
+  ends_at: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  persons: number | null;
+  message: string | null;
+  status: 'waiting' | 'notified' | 'converted' | 'cancelled' | 'expired';
+  created_at: string;
+  notified_at: string | null;
+  locations?: { code: string; name: string } | null;
 }

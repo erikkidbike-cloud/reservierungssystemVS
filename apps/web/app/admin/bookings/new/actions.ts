@@ -69,7 +69,7 @@ function backWithError(formData: FormData, code: string): never {
   for (const [key, value] of formData.entries()) {
     if (key.startsWith('extra_qty_') && String(value)) params.set(key, String(value));
   }
-  for (const flag of ['approve', 'notify']) {
+  for (const flag of ['approve', 'notify', 'allow_overlap']) {
     if (formData.get(flag)) params.set(flag, 'on');
   }
   redirect(`/admin/bookings/new?${params.toString()}`);
@@ -182,6 +182,7 @@ export async function createInternalBooking(formData: FormData): Promise<void> {
     p_lang: lang,
     p_source: 'internal',
     p_tariff_type: tariffType,
+    p_allow_overlap: formData.get('allow_overlap') === 'on',
   });
 
   if (error) {

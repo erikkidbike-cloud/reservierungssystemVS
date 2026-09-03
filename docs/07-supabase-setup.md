@@ -38,6 +38,11 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    supabase/migrations/0007_functions.sql
    supabase/migrations/0008_agreements.sql
    supabase/migrations/0009_grants.sql
+   supabase/migrations/0010_reference_and_tasks.sql
+   supabase/migrations/0011_storage_buckets.sql
+   supabase/migrations/0012_events.sql
+   supabase/migrations/0013_mail_templates.sql
+   supabase/migrations/0014_enhancements.sql
    ```
 
    **`0009` matters even though it looks like boilerplate.** Without it, the
@@ -49,7 +54,7 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    `0009`, running it now (and redeploying) is the fix.
 
    The order matters — each one builds on the last (e.g. the overlap
-   constraint in `0004` needs the `bookings` table `0003` creates). Do **not**
+   constraint in `0004` and `0014` needs the `bookings` table `0003` creates). Do **not**
    run `supabase/test/00_supabase_shim.sql` — that file exists only to fake the
    parts of Supabase (the `auth` schema, `anon`/`authenticated` roles) that a
    local Postgres doesn't have; a real Supabase project already has all of it.
@@ -59,6 +64,8 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    ```
    supabase/seed/seed.sql
    supabase/seed/nv_clauses.sql
+   supabase/seed/nv_clauses_overrides.sql
+   supabase/seed/mail_templates.sql
    ```
 
    (`nv_clauses.sql` looks up locations by code, so `seed.sql` — which creates
@@ -69,9 +76,10 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    select code, name, online_bookability from locations order by sort_order;
    select l.code, count(*) from agreement_clauses ac
      join locations l on l.id = ac.location_id group by l.code;
+   select count(*) from mail_templates;
    ```
-   Expect 3 locations (WE, WA, WI) and clause counts WE=16, WA=11 (WI has none
-   yet — that's correct, see §6).
+   Expect 3 locations (WE, WA, WI), clause counts WE=16, WA=11 (WI has none
+   yet — that's correct, see §6), and 7 standard mail templates.
 
 ### Option B — Supabase CLI (if you'd rather script it)
 
@@ -86,6 +94,8 @@ for f in supabase/migrations/0*.sql; do
 done
 supabase db execute --file supabase/seed/seed.sql
 supabase db execute --file supabase/seed/nv_clauses.sql
+supabase db execute --file supabase/seed/nv_clauses_overrides.sql
+supabase db execute --file supabase/seed/mail_templates.sql
 ```
 
 Either option leaves the database in the identical state — this repo's local

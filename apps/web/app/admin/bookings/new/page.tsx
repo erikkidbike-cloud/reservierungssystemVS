@@ -184,6 +184,22 @@ export default async function NewBookingPage({
         </div>
       )}
 
+      {prev(params, 'error') === 'slot_taken' && (
+        <div className="notice" style={{ background: '#fff8e6', border: '1px solid #e6a700', color: '#16181a', marginBottom: 16 }}>
+          <strong style={{ color: '#b36b00' }}>⚠️ Achtung: Terminüberschneidung / Doppelbelegung</strong>
+          <p style={{ margin: '4px 0 0' }}>
+            Für diesen Zeitraum liegt an diesem Standort bereits eine andere Buchung oder Sperre vor.
+            Wenn Sie die Doppelbelegung / Überbuchung ausdrücklich vornehmen möchten, aktivieren Sie bitte unten im Bereich „Anlegen“ die Bestätigung.
+          </p>
+        </div>
+      )}
+
+      {prev(params, 'error') && prev(params, 'error') !== 'slot_taken' && (
+        <div className="notice">
+          {bookingErrorDe(prev(params, 'error'))}
+        </div>
+      )}
+
       <form action={createInternalBooking}>
         {/* Repeated as hidden fields: the picker above is a separate form, so
             its values are not part of this submission. */}
@@ -375,6 +391,17 @@ export default async function NewBookingPage({
             />
             E-Mail an die anfragende Person schicken
           </label>
+          {prev(params, 'error') === 'slot_taken' && (
+            <label style={{ fontWeight: 600, color: '#b36b00', marginTop: 8, display: 'block' }}>
+              <input
+                type="checkbox"
+                name="allow_overlap"
+                defaultChecked={params.allow_overlap !== undefined}
+                style={{ width: 'auto', display: 'inline', marginRight: 8 }}
+              />
+              Doppelbelegung / Überbuchung ausdrücklich erlauben
+            </label>
+          )}
           <button type="submit" style={{ marginTop: 12 }} disabled={!config}>
             Buchung anlegen
           </button>

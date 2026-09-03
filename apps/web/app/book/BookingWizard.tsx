@@ -122,6 +122,10 @@ export default function BookingWizard({
   const [salutation, setSalutation] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [street, setStreet] = useState('');
+  const [house, setHouse] = useState('');
+  const [zip, setZip] = useState('');
+  const [city, setCity] = useState('');
   const [organization, setOrganization] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -132,6 +136,10 @@ export default function BookingWizard({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<{ from: string; to: string } | null>(null);
   const [activeEvent, setActiveEvent] = useState<DayBlock | null>(null);
+
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const [waitlistStatus, setWaitlistStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
 
   const start = parseLocalDateTime(`${date}T${fromTime}`);
   const end = parseLocalDateTime(`${date}T${toTime}`);
@@ -227,6 +235,10 @@ export default function BookingWizard({
           salutation: salutation || undefined,
           first_name: firstName || undefined,
           last_name: lastName || undefined,
+          street: street || undefined,
+          house: house || undefined,
+          zip: zip || undefined,
+          city: city || undefined,
           organization: organization || undefined,
           email,
           phone: phone || undefined,
@@ -243,6 +255,43 @@ export default function BookingWizard({
     } catch {
       setSubmitError(publicErrorMessage('server_error', lang));
       setStatus('error');
+    }
+  }
+
+  async function submitWaitlist() {
+    if (!start || !end) return;
+    const name = [firstName, lastName].filter(Boolean).join(' ').trim();
+    if (!name || !email) {
+      setWaitlistError(lang === 'en' ? 'Please provide your name and email.' : 'Bitte Vorname, Nachname und E-Mail angeben.');
+      return;
+    }
+    setWaitlistStatus('sending');
+    setWaitlistError(null);
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          school: location.code,
+          from: `${date}T${fromTime}`,
+          to: `${date}T${toTime}`,
+          persons: personsNum || undefined,
+          customer_name: name,
+          customer_email: email,
+          customer_phone: phone || undefined,
+          message: message || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setWaitlistError(publicErrorMessage(json.error ?? 'server_error', lang));
+        setWaitlistStatus('error');
+        return;
+      }
+      setWaitlistStatus('success');
+    } catch {
+      setWaitlistError(publicErrorMessage('server_error', lang));
+      setWaitlistStatus('error');
     }
   }
 
@@ -471,6 +520,95 @@ export default function BookingWizard({
                   : allErrors.includes('too_soon')
                     ? t.shortTermWarning
                     : t.conflict}
+              {allErrors.includes('overlap') && !showWaitlist && waitlistStatus !== 'success' && (
+                <div style={{ marginTop: 10 }}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setShowWaitlist(true)}
+                  >
+                    {t.waitlistBtn} →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showWaitlist && (
+            <div className="panel" style={{ marginTop: 16, border: '1px solid var(--accent)' }}>
+              <h3 style={{ marginTop: 0 }}>{t.waitlistTitle}</h3>
+              <p className="muted small">{t.waitlistLead}</p>
+              {waitlistStatus === 'success' ? (
+                <div className="badge badge--ok" style={{ display: 'block', padding: 8, textAlign: 'center' }}>
+                  {t.waitlistSuccess}
+                </div>
+              ) : (
+                <>
+                  <div className="grid-2">
+                    <label>
+                      {t.firstName} *
+                      <input
+                        type="text"
+                        required
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      {t.lastName} *
+                      <input
+                        type="text"
+                        required
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      {t.email} *
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      {t.phone}
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    {t.message}
+                    <textarea
+                      rows={2}
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder={lang === 'en' ? 'Any flexible alternatives?' : 'Ggf. Ausweichtermine?'}
+                    />
+                  </label>
+                  {waitlistError && <div className="notice">{waitlistError}</div>}
+                  <div className="row" style={{ marginTop: 12 }}>
+                    <button
+                      type="button"
+                      disabled={waitlistStatus === 'sending' || !firstName || !lastName || !email}
+                      onClick={submitWaitlist}
+                    >
+                      {waitlistStatus === 'sending' ? t.btnSending : t.btnJoinWaitlist}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setShowWaitlist(false)}
+                    >
+                      {lang === 'en' ? 'Cancel' : 'Abbrechen'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -598,6 +736,46 @@ export default function BookingWizard({
               <input type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </label>
             <label>
+              {t.street}
+              <input
+                type="text"
+                required
+                value={street}
+                onChange={(e) => setStreet(e.target.value)}
+                autoComplete="address-line1"
+              />
+            </label>
+            <label>
+              {t.house}
+              <input
+                type="text"
+                required
+                value={house}
+                onChange={(e) => setHouse(e.target.value)}
+                autoComplete="address-line2"
+              />
+            </label>
+            <label>
+              {t.zip}
+              <input
+                type="text"
+                required
+                value={zip}
+                onChange={(e) => setZip(e.target.value)}
+                autoComplete="postal-code"
+              />
+            </label>
+            <label>
+              {t.city}
+              <input
+                type="text"
+                required
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                autoComplete="address-level2"
+              />
+            </label>
+            <label>
               {t.email}
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </label>
@@ -637,7 +815,7 @@ export default function BookingWizard({
             </button>
             <button
               type="button"
-              disabled={!accept || !firstName || !lastName || !email || status === 'sending'}
+              disabled={!accept || !firstName || !lastName || !email || !street || !house || !zip || !city || status === 'sending'}
               onClick={submit}
             >
               {status === 'sending' ? t.btnSending : t.btnSend}

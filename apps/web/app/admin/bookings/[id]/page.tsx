@@ -91,6 +91,34 @@ export default async function BookingDetailPage({
     .eq('booking_id', id)
     .order('created_at', { ascending: false });
 
+  let customerExp = null;
+  if (showContact && (cust?.email || cust?.last_name)) {
+    const filters = [];
+    if (cust?.email) filters.push(`match_email.eq.${cust.email.toLowerCase()}`);
+    if (cust?.phone) filters.push(`match_phone.eq.${cust.phone}`);
+    if (cust?.last_name) filters.push(`match_last_name.ilike.${cust.last_name}`);
+    if (filters.length > 0) {
+      const { data: exp } = await supabase
+        .from('customer_experiences')
+        .select('*')
+        .or(filters.join(','))
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      customerExp = exp;
+    }
+  }
+
+  let waitlistCount = 0;
+  if (['cancelled', 'postponed', 'rejected', 'expired'].includes(status)) {
+    const { count } = await supabase
+      .from('waitlist_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('location_id', b.location_id)
+      .eq('status', 'waiting');
+    waitlistCount = count ?? 0;
+  }
+
   const trail = (events ?? []) as BookingEventRow[];
   const signingUrl = absoluteUrl(await siteOriginFromHeaders(), `/sign/${id}`);
 
@@ -104,8 +132,55 @@ export default async function BookingDetailPage({
         <h1 style={{ marginBottom: 0 }}>
           {loc?.name} · {fmtDateTime(b.starts_at)}
         </h1>
-        <span className={statusBadgeClass(status)}>{STATUS_LABEL[status]}</span>
+        <div className="row" style={{ alignItems: 'center', gap: 8, marginBottom: 0 }}>
+          {(b.has_overlap || b.allow_overlap) && (
+            <span className="badge badge--warn" title="Dieser Termin überschneidet sich mit einer anderen Buchung">
+              ⚠️ Doppelbelegung
+            </span>
+          )}
+          <span className={statusBadgeClass(status)}>{STATUS_LABEL[status]}</span>
+          {showContact && (
+            <Link href={`/admin/bookings/${id}/edit`}>
+              <button type="button" className="secondary" style={{ padding: '4px 12px' }}>
+                Bearbeiten …
+              </button>
+            </Link>
+          )}
+        </div>
       </div>
+
+      {customerExp && (
+        <div
+          className="notice"
+          style={{
+            background: customerExp.rating === 'do_not_rent' || customerExp.rating === 'negative' ? '#fff0f0' : '#f0f7ff',
+            border: `1px solid ${customerExp.rating === 'do_not_rent' || customerExp.rating === 'negative' ? '#e03e3e' : '#70a0d0'}`,
+            color: '#16181a',
+            marginTop: 16,
+          }}
+        >
+          <strong style={{ color: customerExp.rating === 'do_not_rent' || customerExp.rating === 'negative' ? '#c92a2a' : 'inherit' }}>
+            {customerExp.rating === 'do_not_rent'
+              ? '⛔ SPERRE (Do-Not-Rent) / Warnung zu dieser Person'
+              : customerExp.rating === 'negative'
+                ? '⚠️ Negative Vorerfahrung zu dieser Person'
+                : customerExp.rating === 'positive'
+                  ? '✨ Positive Vorerfahrung'
+                  : 'ℹ️ Vermerk zu dieser Person'}
+          </strong>
+          {customerExp.note && <p style={{ margin: '4px 0 0' }}>{customerExp.note}</p>}
+          <p className="muted small" style={{ margin: '6px 0 0' }}>
+            <Link href="/admin/customers">Zur Kundenverwaltung →</Link>
+          </p>
+        </div>
+      )}
+
+      {waitlistCount > 0 && (
+        <div className="notice" style={{ background: '#f8f9fa', border: '1px solid #ced4da', marginTop: 12 }}>
+          ℹ️ <strong>Warteliste:</strong> Für diesen Standort warten aktuell <strong>{waitlistCount}</strong> Personen auf freie Termine.{' '}
+          <Link href="/admin/waitlist">Warteliste öffnen →</Link>
+        </div>
+      )}
 
       <div className="grid-2" style={{ marginTop: 24 }}>
         <div className="panel">
@@ -231,6 +306,30 @@ export default async function BookingDetailPage({
             <p className="muted small" style={{ marginBottom: 0 }}>
               Link zur Unterschrift: <code>{signingUrl}</code>
             </p>
+          )}
+          {doc.status === 'signed' && (
+            <div className="row" style={{ marginTop: 12, gap: 8 }}>
+              <a
+                href={`/api/admin/bookings/${id}/document/signature`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <button type="button" className="secondary" style={{ padding: '6px 12px' }}>
+                  Unterschrift ansehen →
+                </button>
+              </a>
+              {doc.id_document_path && (
+                <a
+                  href={`/api/admin/bookings/${id}/document/id`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <button type="button" className="secondary" style={{ padding: '6px 12px' }}>
+                    Ausweisdokument ansehen / herunterladen →
+                  </button>
+                </a>
+              )}
+            </div>
           )}
         </div>
       )}
