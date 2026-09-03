@@ -15,20 +15,11 @@ import {
   requestReceivedToCustomer,
   type BookingMailContext,
 } from '@/lib/mail-templates';
+import { siteOriginFromRequest, absoluteUrl } from '@/lib/site-url';
 import type { TariffType } from '@/lib/db-types';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-/**
- * Absolute link back into the console for the notification mail. Prefers the
- * configured public URL and falls back to the request's own origin, so a
- * preview deploy links to itself rather than to production.
- */
-function absoluteUrl(request: Request, path: string): string {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
-  return new URL(path, base).toString();
-}
 
 /** Machine codes from create_booking_request → HTTP status + message key. */
 const DB_ERRORS: Record<string, { status: number; code: string }> = {
@@ -189,7 +180,9 @@ export async function POST(request: Request) {
     customerEmail: email,
     customerPhone: body.phone ?? null,
     holdExpiresAt: booking?.hold_expires_at ?? null,
-    adminUrl: booking?.id ? absoluteUrl(request, `/admin/bookings/${booking.id}`) : null,
+    adminUrl: booking?.id
+      ? absoluteUrl(siteOriginFromRequest(request), `/admin/bookings/${booking.id}`)
+      : null,
     lang,
   };
 

@@ -93,20 +93,31 @@ not this one. Listed for completeness.
 
 ## Phase 2 — public booking form
 
-- **2.1 Public calendar** (FullCalendar) reading `public_availability`. Port the
-  UX from `reference/legacy-kidbike-json/index.html` (grid, responsive day/week,
-  closing block for WE). AC: occupancy matches the DB, no PII in the payload.
-- **2.2 Booking wizard** (2 steps: time/price, then contact + terms). Reuse the
-  DE/EN i18n and the 10 terms per language verbatim from `index.html`
-  (`I18N`, `getTermsForSchool`). AC: validation matches `validateTimes`
-  (see engine `validateRequest`).
-- **2.3 Live price preview** from `packages/pricing` (same module the server
-  uses). AC: preview equals server-computed price for identical input.
-- **2.4 Submit → `request_booking()` RPC.** AC: server recomputes and stores the
-  price; client number is never trusted. Overlap is rejected server-side.
-- **2.5 Re-point the website iframe** to the new form; keep the `postMessage`
-  height protocol (`embed-size`) from `index.html`. Decommission Apps Script,
-  the Sheet, the four flows, the GitHub dispatch.
+- ✅ **2.1 Public calendar**, reading `public_availability` — **Done, with a
+  scope cut.** `/book` shows one calendar day at a time (a click-to-set-start
+  bar plus precise time inputs) rather than a FullCalendar multi-week
+  drag-select grid — occupancy is fully visible and every rule still applies,
+  see `apps/web/app/book/BookingWizard.tsx`'s header comment for the reasoning.
+  AC met: occupancy matches the DB (queries `public_availability` directly),
+  no PII in the payload (that view never carried any).
+- ✅ **2.2 Booking wizard** (2 steps: time/price, then contact + terms) —
+  **Done.** DE/EN copy and the 10 terms per language are ported verbatim from
+  `index.html` into `apps/web/lib/public-i18n.ts` (`I18N`, `getTermsForSchool`).
+  Time validation runs the actual `validateRequest()` from `@vs/pricing` in the
+  browser — not a re-implementation — so the AC holds by construction.
+- ✅ **2.3 Live price preview** — **Done.** `BookingWizard` calls `computePrice()`
+  from `@vs/pricing` directly, the same module `lib/booking-pricing.ts` uses
+  server-side, so the previewed and charged price cannot diverge.
+- ✅ **2.4 Submit → `create_booking_request()`** — **Done** (this RPC's actual
+  name; `request_booking()` above was this doc's working title). Server
+  recomputes and stores the price; the client's number is never trusted, and
+  the exclusion constraint rejects overlap even under a race.
+- ⬜ **2.5 Re-point the website iframe.** The `embed-size` `postMessage`
+  protocol is implemented (`BookingWizard`'s effect posts `document.
+  documentElement.scrollHeight` to `window.parent`), but pointing the actual
+  kidbike.de iframe at `/book` and decommissioning Apps Script/the Sheet/the
+  flows/the GitHub dispatch is a cutover on the *website's* side, outside this
+  repository — see `docs/09-cutover.md` for the steps and their order.
 
 ## Phase 3 — documents & signing
 
@@ -134,31 +145,68 @@ not this one. Listed for completeness.
   `supabase/test/02_agreements.test.sql`. A location with no rows (WI today) has
   no agreement yet; the "Aus importierter Word-Vorlage übernehmen" button or
   typing clauses in by hand both work the same way for turning one on later.
-- **3.2 Sammel-Nutzungsvereinbarung** — select multiple bookings → one PDF
-  (30% Skonto clause, no deposit clause). Replaces the Excel `Sammel-NV`
-  paste-tab. Source: `Sammel-Nutzungsvereinbarung VS WE DE.docx`.
-- **3.3 Signing page** (no account): mouse/touch signature; **optional** ID
-  upload when `needs_id_upload`. Store signer name, timestamp, IP. Two JotForm
-  forms are being replaced (with-ID `261884496339373`, without-ID
-  `251882285854065`). AC: signed PDF + metadata stored; state → `signed`.
+- 🚫 **3.2 Sammel-Nutzungsvereinbarung** — **Blocked, not attempted.** This needs
+  the actual `Sammel-Nutzungsvereinbarung VS WE DE.docx` wording (the 30%
+  Skonto clause and the no-deposit variant are contract text, not something to
+  invent by analogy the way the WA deposit clause was adapted from WE's own
+  approved wording — there, the source was this project's own text; here there
+  is no source at all). Needs: (a) the Word file, imported the same way
+  `scripts/import-nv-docx.py` handled WE/WA, and (b) a schema decision, since
+  `agreement_clauses` is keyed by `location_id` only today — a location's
+  Sammel-NV would need its own clause set alongside its normal one (e.g. a
+  `document_type` column added to `agreement_clauses`, mirroring the enum
+  already on `documents`).
+- ✅ **3.3 Signing page** (no account) — **Done.** `/sign/[bookingId]` — the
+  booking's own UUID is the access token, mailed only at `agreement_sent` (see
+  `agreementSentToCustomer` and `markAgreementSent` in
+  `app/admin/bookings/actions.ts`), matching the trust model the two JotForm
+  links relied on. Renders the live agreement (`buildNutzungsvereinbarungHtml`,
+  same renderer as the admin preview) alongside a canvas signature pad
+  (mouse/touch) and an ID upload that's required exactly when
+  `needs_id_upload` is set. `app/api/sign/[bookingId]/route.ts` stores the
+  signature and any ID document in private Storage buckets
+  (`supabase/migrations/0011_storage_buckets.sql`), writes `documents`
+  (signer name, timestamp, IP), and transitions the booking to `signed`.
+  Idempotent: opening an already-signed link again just shows confirmation.
 
 ## Phase 4 — payments & tasks
 
-- **4.1 SevDesk integration** (needs API token, OQ 14): poll transactions →
-  `payments`. Match on Verwendungszweck + amount. AC: a matching payment advances
-  `signed`→`paid` automatically.
-- **4.2 Verwendungszweck generator** — reproduce the Excel `AutoVZweck` formula
-  (`F` + location + last 3 of series + 2 surname + 2 first-name letters). AC:
-  generated reference equals the Excel output for sample rows.
-- **4.3 Caretaker tasks + view** — on `confirmed`, create `open_venue` /
-  `close_venue` tasks; caretaker sees only `caretaker_tasks`. Replaces the
-  "Automatische Mail Ziethen" flow. AC: caretaker login shows only their tasks.
-- **4.4 Deposit-return workflow** — on `completed`, a `return_deposit` task with a
-  14-day deadline when a deposit was held.
-- ~~**4.5 Cron: expire holds**~~ ✅ **Done (function)** — `expire_holds()` in
-  `0007_functions.sql` flips lapsed `requested` holds to `expired` and logs each
-  one, returning the count. **Remaining:** schedule it hourly (pg_cron, or a
-  Supabase scheduled Edge Function).
+- 🟡 **4.1 SevDesk integration** (needs API token, OQ 14) — **Matching engine
+  done and tested; the SevDesk half is unverified.** `packages/payments`'
+  `matchPayments()` is a pure, tested function (10 tests) matching a
+  transaction to a `signed` booking on Verwendungszweck-contains-in-purpose +
+  exact amount, refusing to guess on an ambiguous match. `sevdesk-client.ts`
+  and `app/api/cron/sync-payments/route.ts` wire it to the real SevDesk API,
+  but the endpoint/field names there are from SevDesk's public docs, not
+  confirmed against a real response — verify once OQ 14's token exists (that
+  file's header says exactly what to check). Until then, **`/admin/payments`
+  works today**: it records a payment manually through the identical
+  `applyPayment()` the automated path uses, so a booking bought "manually
+  now, automatically later" is recorded the same way either time.
+- ✅ **4.2 Verwendungszweck generator** — **Done, format reproduced; exact
+  Excel sequence not.** `generate_verwendungszweck()` in
+  `supabase/migrations/0010_reference_and_tasks.sql` reproduces the documented
+  FORMAT (`F` + location + 3-digit sequence + 2 letters surname + 2 letters
+  first name) — the Excel *formula* itself was never recovered (still an open
+  question), so the 3-digit component is this system's own sequence, not a
+  continuation of Excel's historical numbers; see that migration's header for
+  why that's fine going forward and what a future Excel import (1.7) should do
+  differently. `create_booking_request()` now sets it on every booking.
+- ✅ **4.3 Caretaker tasks + view** — **Done.** A trigger on `confirmed`
+  (`create_lifecycle_tasks()`, same migration) creates `open_venue` /
+  `close_venue` tasks, assigned to whichever `hausmeister` is linked to the
+  location via `user_locations` (unassigned, visible to admin/location_manager,
+  if none is on file yet). `/admin/tasks` is the caretaker's own list
+  (`caretaker_tasks` view, already scoped to `auth.uid()`) with a "done"
+  button, and the admin/location_manager management view alongside it.
+- ✅ **4.4 Deposit-return workflow** — **Done**, same trigger: completing a
+  booking with a deposit held creates a `return_deposit` task due 14 days
+  after the event.
+- ✅ **4.5 Cron: expire holds** — **Done, including the schedule.**
+  `expire_holds()` (0007) does the work; `supabase/post-deploy/schedule-expire-
+  holds.sql` is the one-time SQL-editor step that puts it on an hourly pg_cron
+  schedule (kept outside `migrations/` because pg_cron is Supabase-managed and
+  unavailable to the local test harness — see that file's header).
 
 ## Phase 5 — nice-to-haves
 

@@ -125,6 +125,39 @@ export interface AgreementClause {
   updated_at: string;
 }
 
+export type TaskType = 'open_venue' | 'close_venue' | 'return_deposit' | 'send_agreement' | 'other';
+export type TaskStatus = 'open' | 'done' | 'cancelled';
+
+/** Row of `tasks`, for the admin/location_manager management view. */
+export interface TaskRow {
+  id: string;
+  booking_id: string | null;
+  location_id: string;
+  type: TaskType;
+  title: string | null;
+  assignee_id: string | null;
+  due_at: string | null;
+  status: TaskStatus;
+  done_at: string | null;
+  notes: string | null;
+}
+
+/** Row of the `caretaker_tasks` view — a hausmeister's own tasks only. */
+export interface CaretakerTaskRow {
+  task_id: string;
+  type: TaskType;
+  title: string | null;
+  due_at: string | null;
+  status: TaskStatus;
+  notes: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  location_code: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+}
+
 export interface TariffRow {
   id: string;
   location_id: string;

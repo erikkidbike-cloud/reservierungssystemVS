@@ -22,6 +22,7 @@ import {
   fmtEuro,
 } from '@/lib/booking-labels';
 import { transitionBooking, saveInternalNotes } from '../actions';
+import { siteOriginFromHeaders, absoluteUrl } from '@/lib/site-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +77,13 @@ export default async function BookingDetailPage({
   const mayAct = canApprove(role);
   const actions = mayAct ? allowedActions(status) : [];
 
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('status, signed_at, signer_name, id_document_path')
+    .eq('booking_id', id)
+    .eq('type', 'nutzungsvereinbarung')
+    .maybeSingle();
+
   const { data: events } = await supabase
     .from('booking_events')
     .select('id, event_type, from_status, to_status, created_at, actor_id')
@@ -83,6 +91,7 @@ export default async function BookingDetailPage({
     .order('created_at', { ascending: false });
 
   const trail = (events ?? []) as BookingEventRow[];
+  const signingUrl = absoluteUrl(await siteOriginFromHeaders(), `/sign/${id}`);
 
   return (
     <>
@@ -198,6 +207,30 @@ export default async function BookingDetailPage({
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>Nachricht der anfragenden Person</h2>
           <p style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{b.message}</p>
+        </div>
+      )}
+
+      {doc && (
+        <div className="panel">
+          <h2 style={{ marginTop: 0 }}>Nutzungsvereinbarung</h2>
+          <p style={{ marginBottom: doc.status === 'sent' ? 8 : 0 }}>
+            Status: <span className={doc.status === 'signed' ? 'badge badge--ok' : 'badge'}>
+              {doc.status === 'signed' ? 'Unterschrieben' : doc.status === 'sent' ? 'Versandt' : 'Entwurf'}
+            </span>
+            {doc.signed_at && (
+              <span className="muted small">
+                {' '}
+                · {fmtDateTime(doc.signed_at)}
+                {doc.signer_name ? ` · ${doc.signer_name}` : ''}
+                {doc.id_document_path ? ' · Ausweisdokument hochgeladen' : ''}
+              </span>
+            )}
+          </p>
+          {doc.status === 'sent' && (
+            <p className="muted small" style={{ marginBottom: 0 }}>
+              Link zur Unterschrift: <code>{signingUrl}</code>
+            </p>
+          )}
         </div>
       )}
 

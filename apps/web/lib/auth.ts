@@ -74,6 +74,16 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   hausmeister: 'Hausmeister',
 };
 
+/** Tasks (caretaker jobs, deposit returns) — the caretaker's own, or the manager view. */
+export function canSeeTasks(role: AppRole | undefined): boolean {
+  return role === 'hausmeister' || canApprove(role);
+}
+
+/** Payments — matches the `payments_access` RLS policy (admin + finance only). */
+export function canManagePayments(role: AppRole | undefined): boolean {
+  return role === 'admin' || role === 'finance';
+}
+
 /**
  * Editing the Nutzungsvereinbarung text is scoped like bookings (admin
  * everywhere, location_manager for their own location) rather than restricted

@@ -43,6 +43,24 @@ export async function loadLocation(code: string): Promise<Location | null> {
   return (data as Location) ?? null;
 }
 
+/**
+ * All active locations, for the public booking form's chooser. Goes through
+ * adminClient() rather than a direct client query deliberately: `locations`
+ * requires `auth.uid() is not null` (see 0005_rls.sql), so an anonymous
+ * visitor has no read access to the base table at all — the public page is
+ * the trusted server boundary that decides what subset of a location is safe
+ * to hand to a browser (see PublicLocation in app/book/page.tsx).
+ */
+export async function loadActiveLocations(): Promise<Location[]> {
+  const { data, error } = await adminClient()
+    .from('locations')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order');
+  if (error) throw new Error(`Failed to load locations: ${error.message}`);
+  return (data ?? []) as Location[];
+}
+
 /** The tariff in force today for this location + type. */
 export async function loadTariffConfig(locationId: string, tariffType: TariffType) {
   const today = new Date().toISOString().slice(0, 10);

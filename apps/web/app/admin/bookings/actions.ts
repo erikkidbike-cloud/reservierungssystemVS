@@ -21,8 +21,11 @@ import {
   approvedToCustomer,
   rejectedToCustomer,
   cancelledToCustomer,
+  confirmedToCustomer,
+  agreementSentToCustomer,
   type BookingMailContext,
 } from '@/lib/mail-templates';
+import { siteOriginFromHeaders, absoluteUrl } from '@/lib/site-url';
 
 /** Booking + the joined bits the mail templates need. */
 interface BookingForTransition {
@@ -35,6 +38,7 @@ interface BookingForTransition {
   price_total: number | null;
   caution: number | null;
   lang: string;
+  needs_id_upload: boolean;
   locations: { name: string; code: string } | null;
   customers: {
     first_name: string | null;
@@ -42,6 +46,42 @@ interface BookingForTransition {
     email: string | null;
     phone: string | null;
   } | null;
+}
+
+/**
+ * documents has no unique constraint on (booking_id, type) — an agreement can
+ * legitimately be re-sent (a correction, a customer who lost the email), and
+ * each send should still leave exactly one row per booking, not accumulate
+ * duplicates. Manual check-then-write rather than .upsert(), same shape as
+ * lib/agreements.ts's clause helpers.
+ */
+async function markAgreementSent(
+  supabase: ReturnType<typeof serverClient>,
+  bookingId: string,
+  needsIdUpload: boolean,
+): Promise<void> {
+  const { data: existing } = await supabase
+    .from('documents')
+    .select('id')
+    .eq('booking_id', bookingId)
+    .eq('type', 'nutzungsvereinbarung')
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from('documents')
+      .update({ status: 'sent', id_document_required: needsIdUpload })
+      .eq('id', existing.id);
+    if (error) throw new Error(`Dokument konnte nicht aktualisiert werden: ${error.message}`);
+  } else {
+    const { error } = await supabase.from('documents').insert({
+      booking_id: bookingId,
+      type: 'nutzungsvereinbarung',
+      status: 'sent',
+      id_document_required: needsIdUpload,
+    });
+    if (error) throw new Error(`Dokument konnte nicht angelegt werden: ${error.message}`);
+  }
 }
 
 function toMailContext(b: BookingForTransition): BookingMailContext | null {
@@ -78,7 +118,7 @@ export async function transitionBooking(formData: FormData): Promise<void> {
     .from('bookings')
     .select(
       'id, status, starts_at, ends_at, persons, event_type, price_total, caution, lang, ' +
-        'locations(name, code), customers(first_name, last_name, email, phone)',
+        'needs_id_upload, locations(name, code), customers(first_name, last_name, email, phone)',
     )
     .eq('id', bookingId)
     .maybeSingle();
@@ -125,11 +165,27 @@ export async function transitionBooking(formData: FormData): Promise<void> {
   // The status-change audit row is written by the database trigger
   // (log_booking_status_change), so it records the change even if what follows
   // fails. Notification is best-effort and must never undo the transition.
+  // send_agreement's documented effect (packages/domain/booking-state.ts) is
+  // "email signing link to customer" — the documents row is what the signing
+  // page (app/sign/[bookingId]) and later the signed-and-store step update.
+  if (target.to === 'agreement_sent') {
+    await markAgreementSent(supabase, bookingId, b.needs_id_upload);
+  }
+
   const ctx = toMailContext(b);
   if (ctx) {
     if (target.to === 'approved') await sendMail(approvedToCustomer(ctx));
     else if (target.to === 'rejected') await sendMail(rejectedToCustomer(ctx, reason));
     else if (target.to === 'cancelled') await sendMail(cancelledToCustomer(ctx, reason));
+    // confirm's documented effect (packages/domain/booking-state.ts) includes
+    // "confirmation email" — the caretaker tasks it also creates are the
+    // database trigger's job (0010_reference_and_tasks.sql), not this action's.
+    else if (target.to === 'confirmed') await sendMail(confirmedToCustomer(ctx));
+    else if (target.to === 'agreement_sent') {
+      const origin = await siteOriginFromHeaders();
+      const signingLink = absoluteUrl(origin, `/sign/${bookingId}`);
+      await sendMail(agreementSentToCustomer(ctx, signingLink));
+    }
   }
 
   revalidatePath('/admin/bookings');

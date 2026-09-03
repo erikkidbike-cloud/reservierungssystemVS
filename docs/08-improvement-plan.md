@@ -102,21 +102,37 @@ This is the phase that turns it from a viewer into a system.
   infrastructure decision is made and paid for): new request → the location's
   `cc_emails`; approved/rejected → the customer. Fills the existing `TODO`.
 
-## Phase C — open the public tap
+## Phase C — open the public tap ✅ DONE (C3 is a deployment step, see below)
 
-Only once B works end to end.
-
-- **C1** — Public availability calendar, ported from
-  `reference/legacy-kidbike-json/index.html`.
-- **C2** — Booking wizard, DE/EN, with live price preview from the same engine
-  the server uses (so the quoted price and the charged price cannot diverge).
-- **C3** — Re-point the website iframe; decommission the Apps Script / Sheet /
-  Power Automate chain.
+- ✅ **C1/C2** — `/book`: one-day availability view + a DE/EN, two-step booking
+  wizard with a live price preview run from the exact `@vs/pricing` module the
+  server uses. Scope note: this views/books one calendar day at a time rather
+  than porting `index.html`'s multi-week drag-select grid — see
+  `apps/web/app/book/BookingWizard.tsx`'s header comment for why that's a UI
+  simplification, not a rule relaxation. Full detail: `docs/06-handoff-backlog.md`
+  Phase 2.
+- ⬜ **C3** — Re-pointing the actual kidbike.de iframe is outside this
+  repository; `docs/09-cutover.md` is the runbook for it, including the
+  `postMessage` embed-size protocol (already implemented) and the order to
+  retire the Apps Script/Sheet/Power Automate chain in.
 
 ## Phase D — documents, signing, money
 
-Largely as already scoped in `docs/06-handoff-backlog.md` Phase 3–4: agreement
-send + signature flow, SevDesk payment matching, caretaker tasks.
+Scoped in `docs/06-handoff-backlog.md` Phase 3–4, now mostly done:
+
+- ✅ Signing page (3.3), Verwendungszweck generation (4.2), caretaker tasks and
+  the deposit-return workflow (4.3/4.4), and the `expire_holds` schedule
+  (4.5) — all done; see Phase 3/4 in that doc for what each one is and where it
+  lives.
+- 🟡 SevDesk matching (4.1): the matching *engine* is done and tested
+  (`packages/payments`, no SevDesk dependency); the actual API integration is
+  wired but unverified against a real SevDesk response (no token exists yet —
+  open question 14). `/admin/payments` records a payment manually in the
+  meantime, through the same code path automated matching will use.
+- 🚫 Sammel-Nutzungsvereinbarung (3.2): not attempted — it needs contract text
+  this project doesn't have (the Word source file), not something to
+  approximate. See that item in the backlog for exactly what's needed to
+  unblock it.
 
 ## Decisions from the owner
 

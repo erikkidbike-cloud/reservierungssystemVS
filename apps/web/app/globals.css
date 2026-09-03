@@ -399,3 +399,118 @@ details.card[open] > summary {
   padding-bottom: var(--s3);
   border-bottom: 1px solid var(--line);
 }
+
+/* --------------------------------------------------------- public wizard */
+/* apps/web/app/book — the customer-facing booking form. */
+
+.wizard-steps {
+  display: flex;
+  gap: var(--s2);
+  margin-bottom: var(--s4);
+}
+.wizard-step {
+  flex: 1;
+  text-align: center;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius-sm);
+  background: var(--line);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+}
+.wizard-step.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.daybar {
+  position: relative;
+  height: 56px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+}
+.daybar__closed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--line),
+    var(--line) 6px,
+    var(--surface) 6px,
+    var(--surface) 12px
+  );
+}
+.daybar__block {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  border-radius: 4px;
+  background: var(--muted);
+  opacity: 0.85;
+}
+.daybar__block--hold {
+  background: var(--warn);
+}
+.daybar__block--project {
+  background: var(--accent);
+}
+.daybar__selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--accent-soft);
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+}
+.daybar__selection--invalid {
+  background: #fbe9e7;
+  border-color: var(--danger);
+}
+.daybar__hourmarks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.daybar__legend {
+  display: flex;
+  gap: var(--s4);
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: var(--s2);
+}
+.daybar__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.daybar__legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.price-breakdown {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.price-breakdown td {
+  padding: 3px 0;
+  border: none;
+}
+.price-breakdown tr:last-child td {
+  border-top: 1px solid var(--line);
+  padding-top: var(--s2);
+  font-weight: 700;
+}
+.price-breakdown td:last-child {
+  text-align: right;
+}

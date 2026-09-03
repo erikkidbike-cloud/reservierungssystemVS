@@ -36,3 +36,14 @@ $$;
 
 grant usage on schema auth to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
+
+-- storage schema: bucket registration only. Nothing in this repo touches
+-- storage.objects via SQL — every file read/write goes through the Supabase
+-- Storage JS client from server code (adminClient(), service role), so the
+-- migrations only ever need `storage.buckets` to exist for their `insert`.
+create schema if not exists storage;
+create table if not exists storage.buckets (
+  id     text primary key,
+  name   text not null,
+  public boolean not null default false
+);

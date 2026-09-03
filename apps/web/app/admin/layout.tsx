@@ -9,6 +9,8 @@ import {
   canManageAgreements,
   canManageUsers,
   canSeeContactData,
+  canSeeTasks,
+  canManagePayments,
   ROLE_LABEL,
 } from '@/lib/auth';
 import { signOut } from './actions';
@@ -54,6 +56,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </Link>
         <Link href="/admin">Übersicht</Link>
         <Link href="/admin/bookings">Buchungen</Link>
+        {canSeeTasks(role) && <Link href="/admin/tasks">Aufgaben</Link>}
+        {canManagePayments(role) && <Link href="/admin/payments">Zahlungen</Link>}
         {canManageTariffs(role) && <Link href="/admin/tariffs">Preise</Link>}
         {canManageAgreements(role) && <Link href="/admin/agreements">Verträge</Link>}
         {canManageUsers(role) && <Link href="/admin/users">Benutzer</Link>}

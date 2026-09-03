@@ -191,6 +191,98 @@ KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg`,
   };
 }
 
+/**
+ * To the customer: approved → agreement_sent. Links to the signing page
+ * (/sign/[bookingId]) rather than attaching a PDF — the signing page renders
+ * the exact same HTML the admin agreement preview does (buildNutzungsverein
+ * barungHtml, see @vs/documents), so there is one rendering of the contract
+ * text, not a PDF copy that could drift from what the customer actually signs.
+ * A PDF *attachment* would need headless Chromium, deliberately deferred (see
+ * docs/08-improvement-plan.md's Phase A note) — this sidesteps that need
+ * entirely rather than working around it.
+ */
+export function agreementSentToCustomer(c: BookingMailContext, signingLink: string): MailMessage {
+  const lang = c.lang ?? 'de';
+
+  if (lang === 'en') {
+    return {
+      to: [c.customerEmail],
+      subject: `Please review and sign — ${c.locationName}`,
+      text: `Hello ${c.customerName},
+
+your booking is confirmed. Please review the usage agreement and sign it here:
+
+${signingLink}
+
+${bookingFacts(c, 'en')}
+
+The booking becomes finally binding once the agreement is signed and payment
+has reached us.
+
+Kind regards
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg`,
+    };
+  }
+
+  return {
+    to: [c.customerEmail],
+    subject: `Bitte prüfen und unterschreiben — ${c.locationName}`,
+    text: `Hallo ${c.customerName},
+
+Ihre Buchung ist bestätigt. Bitte prüfen Sie die Nutzungsvereinbarung und
+unterschreiben Sie hier:
+
+${signingLink}
+
+${bookingFacts(c, 'de')}
+
+Verbindlich wird die Buchung, sobald die Vereinbarung unterzeichnet ist und
+die Zahlung bei uns eingegangen ist.
+
+Mit freundlichen Grüßen
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg`,
+  };
+}
+
+/** To the customer: paid → confirmed (TRANSITIONS' documented effect: "confirmation email"). */
+export function confirmedToCustomer(c: BookingMailContext): MailMessage {
+  const lang = c.lang ?? 'de';
+
+  if (lang === 'en') {
+    return {
+      to: [c.customerEmail],
+      subject: `Your booking is confirmed — ${c.locationName}`,
+      text: `Hello ${c.customerName},
+
+everything is in place — your booking is now finally confirmed.
+
+${bookingFacts(c, 'en')}
+
+We look forward to hosting you. If anything changes on your end, please let
+us know as early as you can.
+
+Kind regards
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg`,
+    };
+  }
+
+  return {
+    to: [c.customerEmail],
+    subject: `Ihre Buchung ist verbindlich bestätigt — ${c.locationName}`,
+    text: `Hallo ${c.customerName},
+
+alles ist erledigt — Ihre Buchung ist jetzt endgültig bestätigt.
+
+${bookingFacts(c, 'de')}
+
+Wir freuen uns auf Sie. Sollte sich noch etwas ändern, geben Sie uns bitte
+frühzeitig Bescheid.
+
+Mit freundlichen Grüßen
+KidBike e.V. — Verkehrsschulen Friedrichshain-Kreuzberg`,
+  };
+}
+
 /** To the customer: cancelled after it had already been approved. */
 export function cancelledToCustomer(c: BookingMailContext, reason?: string | null): MailMessage {
   return {
