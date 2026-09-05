@@ -88,6 +88,26 @@ export function newRequestToLocation(supabase: SupabaseClient, c: BookingMailCon
   return buildFromTemplate(supabase, 'new_request_to_location', c, { to, replyTo: c.customerEmail });
 }
 
+/**
+ * To someone on the waiting list: a slot they asked about has come free.
+ *
+ * `slotLine` and `bookingLink` are passed in rather than derived from the
+ * context, because the freed slot is the CANCELLED booking's range while the
+ * recipient's own requested range is something else entirely — rendering
+ * {{startsAt}} here would show them their own wish, not the offer.
+ */
+export function waitlistSlotFreeToCustomer(
+  supabase: SupabaseClient,
+  c: BookingMailContext,
+  slotLine: string,
+  bookingLink: string,
+) {
+  return buildFromTemplate(supabase, 'waitlist_slot_free', c, {
+    to: [c.customerEmail],
+    extraVars: { slotLine, bookingLink },
+  });
+}
+
 /** Every template key a booking transition can send — for the compose screen's action→key mapping. */
 export const MAIL_KEY_FOR_ACTION: Record<string, string> = {
   approve: 'approved',

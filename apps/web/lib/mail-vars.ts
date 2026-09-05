@@ -102,6 +102,8 @@ export function buildMailVars(
     bookingFacts: bookingFacts(c, lang),
     reasonLine: '',
     signingLink: '',
+    slotLine: '',
+    bookingLink: '',
     ...extra,
   };
 }

@@ -24,6 +24,8 @@ import {
 import { transitionBooking, saveInternalNotes } from '../actions';
 import { siteOriginFromHeaders, absoluteUrl } from '@/lib/site-url';
 import { MAIL_KEY_FOR_ACTION } from '@/lib/mail-send';
+import { canManageWaitlist } from '@/lib/auth';
+import { notifyWaitlist, waitlistMatchesFor } from './waitlist-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,15 +111,20 @@ export default async function BookingDetailPage({
     }
   }
 
-  let waitlistCount = 0;
-  if (['cancelled', 'postponed', 'rejected', 'expired'].includes(status)) {
-    const { count } = await supabase
-      .from('waitlist_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('location_id', b.location_id)
-      .eq('status', 'waiting');
-    waitlistCount = count ?? 0;
+  // Who is waiting for THIS slot, not merely for this venue — an overlapping
+  // range is the thing that makes the cancellation news worth sending.
+  const slotIsFree = ['cancelled', 'postponed', 'rejected', 'expired'].includes(status);
+  const waiting = slotIsFree ? await waitlistMatchesFor(b.location_id, b.starts_at, b.ends_at) : [];
+  const alreadyOffered = new Set<string>();
+  if (waiting.length > 0) {
+    const { data: offers } = await supabase
+      .from('waitlist_offers')
+      .select('waitlist_id')
+      .eq('starts_at', b.starts_at)
+      .eq('ends_at', b.ends_at);
+    for (const o of (offers ?? []) as { waitlist_id: string }[]) alreadyOffered.add(o.waitlist_id);
   }
+  const toNotify = waiting.filter((w) => !alreadyOffered.has(w.id));
 
   const trail = (events ?? []) as BookingEventRow[];
   const signingUrl = absoluteUrl(await siteOriginFromHeaders(), `/sign/${id}`);
@@ -175,10 +182,36 @@ export default async function BookingDetailPage({
         </div>
       )}
 
-      {waitlistCount > 0 && (
-        <div className="notice" style={{ background: '#f8f9fa', border: '1px solid #ced4da', marginTop: 12 }}>
-          ℹ️ <strong>Warteliste:</strong> Für diesen Standort warten aktuell <strong>{waitlistCount}</strong> Personen auf freie Termine.{' '}
+      {slotIsFree && waiting.length > 0 && (
+        <div className="notice" style={{ marginTop: 12 }}>
+          <strong>Warteliste:</strong>{' '}
+          {waiting.length === 1
+            ? 'Eine Person wartet'
+            : `${waiting.length} Personen warten`}{' '}
+          auf einen Termin, der sich mit diesem überschneidet.
+          {alreadyOffered.size > 0 && (
+            <>
+              {' '}Davon {alreadyOffered.size === 1 ? 'wurde eine' : `wurden ${alreadyOffered.size}`}{' '}
+              bereits über genau diesen Termin informiert.
+            </>
+          )}{' '}
           <Link href="/admin/waitlist">Warteliste öffnen →</Link>
+          {canManageWaitlist(auth) && toNotify.length > 0 && (
+            <form action={notifyWaitlist} style={{ marginTop: 12 }}>
+              <input type="hidden" name="bookingId" value={id} />
+              <button type="submit" className="secondary">
+                {toNotify.length === 1
+                  ? '1 wartende Person benachrichtigen'
+                  : `${toNotify.length} wartende Personen benachrichtigen`}
+              </button>
+              <p className="muted small" style={{ marginTop: 6, marginBottom: 0 }}>
+                Alle bekommen denselben Link auf das öffentliche Formular, mit Ort und
+                Datum vorausgefüllt. Der Termin wird für niemanden reserviert — wer
+                zuerst bucht, bekommt ihn. Der Text ist unter{' '}
+                <Link href="/admin/mail-templates">E-Mail-Vorlagen</Link> änderbar.
+              </p>
+            </form>
+          )}
         </div>
       )}
 

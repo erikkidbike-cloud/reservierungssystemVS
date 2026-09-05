@@ -5,8 +5,8 @@
 -- Self-contained test identities (each *.test.sql file runs as its own psql
 -- session — a temporary table from another file would not survive here).
 
--- 7 transactional (0013) + 3 reminder templates (0015).
-select assert_eq((select count(*)::int from mail_templates), 10, 'all 10 mail templates seeded');
+-- 7 transactional (0013) + 3 reminder (0015) + 1 waitlist offer (0017).
+select assert_eq((select count(*)::int from mail_templates), 11, 'all 11 mail templates seeded');
 select assert_eq(
   (select count(*)::int from mail_templates where key like 'reminder_%'), 3,
   'the three reminder templates are available to point a rule at');
@@ -21,7 +21,7 @@ begin
 
   perform set_config('request.jwt.claim.sub', staff_id::text, false);
   set local role authenticated;
-  perform assert_eq((select count(*)::int from mail_templates), 10, 'staff can read mail_templates');
+  perform assert_eq((select count(*)::int from mail_templates), 11, 'staff can read mail_templates');
 
   update mail_templates set subject_de = 'hacked' where key = 'approved';
   perform assert_eq(

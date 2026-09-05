@@ -5,6 +5,15 @@
 
 -- ------------------------------------------------------- double booking guard
 -- The public form can never double-book, whatever it sends.
+create or replace function assert_true(actual boolean, label text)
+returns void language plpgsql as $$
+begin
+  if actual is distinct from true then
+    raise exception 'FAIL % — expected true, got %', label, coalesce(actual::text, 'null');
+  end if;
+  raise notice 'ok  %', label;
+end $$;
+
 do $$
 declare b bookings%rowtype;
 begin
@@ -226,3 +235,82 @@ select assert_eq(
   'each location has its own iCal token, so one leak does not expose the rest');
 
 \echo '--- all enhancement tests passed ---'
+
+-- ---------------------------------------------------------------- waitlist offers
+-- 0017: who gets told when a slot frees up, and the guard that stops the same
+-- person being told about the same slot twice.
+
+do $$
+declare
+  we_id uuid; w_overlap uuid; w_other uuid; w_wrong_loc uuid; wa_id uuid;
+  n int;
+begin
+  select id into we_id from locations where code = 'WE';
+  select id into wa_id from locations where code = 'WA';
+
+  -- Freed slot: 2026-11-14 10:00–14:00 (Berlin).
+  insert into waitlist_requests (location_id, starts_at, ends_at, customer_name, customer_email, status)
+  values (we_id, timestamptz '2026-11-14 12:00+01', timestamptz '2026-11-14 16:00+01',
+          'Overlaps', 'overlap@example.com', 'waiting')
+  returning id into w_overlap;
+
+  insert into waitlist_requests (location_id, starts_at, ends_at, customer_name, customer_email, status)
+  values (we_id, timestamptz '2026-11-14 15:00+01', timestamptz '2026-11-14 18:00+01',
+          'Later', 'later@example.com', 'waiting')
+  returning id into w_other;
+
+  insert into waitlist_requests (location_id, starts_at, ends_at, customer_name, customer_email, status)
+  values (wa_id, timestamptz '2026-11-14 12:00+01', timestamptz '2026-11-14 16:00+01',
+          'Other venue', 'wa@example.com', 'waiting')
+  returning id into w_wrong_loc;
+
+  select count(*)::int into n
+  from waitlist_matches(we_id, timestamptz '2026-11-14 10:00+01', timestamptz '2026-11-14 14:00+01');
+  perform assert_eq(n, 1, 'only the overlapping waiting entry at that location matches');
+
+  perform assert_eq(
+    (select id from waitlist_matches(we_id, timestamptz '2026-11-14 10:00+01', timestamptz '2026-11-14 14:00+01')),
+    w_overlap, 'and it is the right one');
+
+  -- A range that merely touches at the boundary is NOT an overlap: 14:00–18:00
+  -- starting exactly when the freed slot ends is a different afternoon.
+  select count(*)::int into n
+  from waitlist_matches(we_id, timestamptz '2026-11-14 18:00+01', timestamptz '2026-11-14 20:00+01');
+  perform assert_eq(n, 0, 'a range that starts after the last entry ends matches nobody');
+
+  -- A notified entry drops out, so a later cancellation does not re-mail them.
+  update waitlist_requests set status = 'notified' where id = w_overlap;
+  select count(*)::int into n
+  from waitlist_matches(we_id, timestamptz '2026-11-14 10:00+01', timestamptz '2026-11-14 14:00+01');
+  perform assert_eq(n, 0, 'an entry that is no longer waiting is not offered again');
+  update waitlist_requests set status = 'waiting' where id = w_overlap;
+end $$;
+
+do $$
+declare
+  we_id uuid; w uuid; failed boolean;
+begin
+  select id into we_id from locations where code = 'WE';
+  insert into waitlist_requests (location_id, starts_at, ends_at, customer_name, customer_email, status)
+  values (we_id, timestamptz '2026-12-05 10:00+01', timestamptz '2026-12-05 14:00+01',
+          'Duplicate guard', 'dup@example.com', 'waiting')
+  returning id into w;
+
+  insert into waitlist_offers (waitlist_id, starts_at, ends_at)
+  values (w, timestamptz '2026-12-05 10:00+01', timestamptz '2026-12-05 14:00+01');
+
+  failed := false;
+  begin
+    insert into waitlist_offers (waitlist_id, starts_at, ends_at)
+    values (w, timestamptz '2026-12-05 10:00+01', timestamptz '2026-12-05 14:00+01');
+  exception when others then failed := true;
+  end;
+  perform assert_true(failed,
+    'the same person cannot be told about the same slot twice — claim before send relies on this');
+
+  -- A DIFFERENT slot for the same person is fine.
+  insert into waitlist_offers (waitlist_id, starts_at, ends_at)
+  values (w, timestamptz '2026-12-12 10:00+01', timestamptz '2026-12-12 14:00+01');
+  perform assert_eq((select count(*)::int from waitlist_offers where waitlist_id = w), 2,
+    'a second, different slot can still be offered to the same person');
+end $$;
