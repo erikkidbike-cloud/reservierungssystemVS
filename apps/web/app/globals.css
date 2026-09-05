@@ -465,11 +465,13 @@ label {
   margin-bottom: var(--s3);
 }
 
-input[type="text"],
-input[type="email"],
-input[type="number"],
-input[type="datetime-local"],
-input[type="date"],
+/* Every text-like field, by EXCLUSION rather than by listing types.
+   The list used to be enumerated, so a `type="tel"` field silently fell back
+   to the browser's default — inline with its own label, its own width, its own
+   border, in the middle of a styled form. `url`, `time` and `search` were in
+   the same state and nobody had noticed yet. Naming what is NOT a text field
+   is a closed set; naming what is keeps growing. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="hidden"]):not([type="file"]):not([type="color"]):not([type="range"]):not([type="image"]),
 select,
 textarea {
   display: block;
@@ -1065,7 +1067,9 @@ details.card[open] > summary {
   gap: var(--s2);
   align-items: stretch;
 }
-.datetime input[type="date"] {
+/* The date half of a Von/Bis pair. It is a .datefield (a text input plus the
+   calendar button) rather than a native date input — see app/DateField.tsx. */
+.datetime > .datefield {
   flex: 1 1 60%;
   min-width: 0;
 }
