@@ -34,6 +34,15 @@ import {
 } from '@/lib/berlin-time';
 import { I18N, getTermsForSchool, publicErrorMessage, type Lang } from '@/lib/public-i18n';
 import { HONEYPOT_FIELD } from '@/lib/honeypot';
+import { SALUTATIONS } from '@/lib/salutations';
+import { AddressFields } from '../AddressFields';
+
+/** Every quarter hour of the day as "HH:MM" — the only times bookable here. */
+const QUARTER_HOURS: string[] = Array.from({ length: 24 * 4 }, (_, i) => {
+  const h = String(Math.floor(i / 4)).padStart(2, '0');
+  const m = String((i % 4) * 15).padStart(2, '0');
+  return `${h}:${m}`;
+});
 
 export interface DayBlock {
   startsAt: string;
@@ -487,16 +496,32 @@ export default function BookingWizard({
             </span>
           </div>
 
-          <div className="grid-2" style={{ marginTop: 16 }}>
-            <label>
+          {/* Quarter hours as a list rather than a spinner: `step={900}` still
+              lets a native time input walk minute by minute, and it renders in
+              the browser's locale (AM/PM on an English machine). A select does
+              neither. */}
+          <div className="formgrid" style={{ marginTop: 16 }}>
+            <label className="col-3">
               {t.from}
-              <input type="time" value={fromTime} onChange={(e) => setFromTime(e.target.value)} step={900} />
+              <select value={fromTime} onChange={(e) => setFromTime(e.target.value)}>
+                {QUARTER_HOURS.map((v) => (
+                  <option key={v} value={v}>
+                    {v} Uhr
+                  </option>
+                ))}
+              </select>
             </label>
-            <label>
+            <label className="col-3">
               {t.to}
-              <input type="time" value={toTime} onChange={(e) => setToTime(e.target.value)} step={900} />
+              <select value={toTime} onChange={(e) => setToTime(e.target.value)}>
+                {QUARTER_HOURS.map((v) => (
+                  <option key={v} value={v}>
+                    {v} Uhr
+                  </option>
+                ))}
+              </select>
             </label>
-            <label>
+            <label className="col-3">
               {t.persons}
               <input
                 type="number"
@@ -724,63 +749,46 @@ export default function BookingWizard({
 
       {step === 2 && (
         <div className="panel">
-          <div className="grid-2">
-            <label>
+          {/* Widths follow content, and the name stays on one line unless the
+              screen is too narrow — see .formgrid in globals.css. */}
+          <div className="formgrid">
+            <label className="col-3">
               {t.salutation}
-              <input type="text" value={salutation} onChange={(e) => setSalutation(e.target.value)} />
+              <select value={salutation} onChange={(e) => setSalutation(e.target.value)}>
+                <option value="">—</option>
+                {SALUTATIONS.map((sal) => (
+                  <option key={sal} value={sal}>
+                    {sal}
+                  </option>
+                ))}
+              </select>
             </label>
-            <label>
-              {t.organization}
-              <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} />
-            </label>
-            <label>
+            <label className="col-4">
               {t.firstName}
               <input type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
             </label>
-            <label>
+            <label className="col-5">
               {t.lastName}
               <input type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </label>
-            <label>
-              {t.street}
-              <input
-                type="text"
-                required
-                value={street}
-                onChange={(e) => setStreet(e.target.value)}
-                autoComplete="address-line1"
-              />
+
+            <label className="col-12">
+              {t.organization}
+              <input type="text" value={organization} onChange={(e) => setOrganization(e.target.value)} />
             </label>
-            <label>
-              {t.house}
-              <input
-                type="text"
-                required
-                value={house}
-                onChange={(e) => setHouse(e.target.value)}
-                autoComplete="address-line2"
-              />
-            </label>
-            <label>
-              {t.zip}
-              <input
-                type="text"
-                required
-                value={zip}
-                onChange={(e) => setZip(e.target.value)}
-                autoComplete="postal-code"
-              />
-            </label>
-            <label>
-              {t.city}
-              <input
-                type="text"
-                required
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                autoComplete="address-level2"
-              />
-            </label>
+
+            <AddressFields
+              lang={lang}
+              required
+              initial={{ street, house, zip, city }}
+              onChange={(v) => {
+                setStreet(v.street);
+                setHouse(v.house);
+                setZip(v.zip);
+                setCity(v.city);
+              }}
+            />
+
             <label>
               {t.email}
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />

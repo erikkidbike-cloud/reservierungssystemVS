@@ -19,6 +19,9 @@ import { loadTariffConfig } from '@/lib/booking-pricing';
 import { bookingErrorDe } from '@/lib/booking-errors';
 import type { Location, TariffType } from '@/lib/db-types';
 import { createInternalBooking } from './actions';
+import { BookingComposer, type ComposerExtra } from './BookingComposer';
+import { AddressFields } from '../../../AddressFields';
+import { SALUTATIONS } from '@/lib/salutations';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,7 +122,21 @@ export default async function NewBookingPage({
   }
 
   const errorCode = prev(params, 'error');
-  const selectedExtras = new Set(prevList(params, 'extras'));
+
+  // Flattened for the client component, which must not import the pricing
+  // package's own union type just to render a checkbox.
+  const extrasCatalogue: ComposerExtra[] = (config?.extras ?? []).map((x) =>
+    x.type === 'quantity'
+      ? {
+          id: x.id,
+          type: 'quantity' as const,
+          labelDe: x.labelDe,
+          pricePerUnit: x.pricePerUnit,
+          min: x.min,
+          max: x.max,
+        }
+      : { id: x.id, type: 'toggle' as const, labelDe: x.labelDe, price: x.price },
+  );
   // On a fresh form the notification is on; on a rejected retry, whatever the
   // person had chosen before is what comes back.
   const notifyDefault = errorCode ? params.notify !== undefined : true;
@@ -206,141 +223,78 @@ export default async function NewBookingPage({
         <input type="hidden" name="school" value={location.code} />
         <input type="hidden" name="tariff_type" value={tariffType} />
 
-        <div className="panel">
-          <h2 style={{ marginTop: 0 }}>Termin</h2>
-          <div className="grid-2">
-            <label>
-              Von
-              <input
-                type="datetime-local"
-                name="from"
-                required
-                defaultValue={prev(params, 'from')}
-              />
-            </label>
-            <label>
-              Bis
-              <input
-                type="datetime-local"
-                name="to"
-                required
-                defaultValue={prev(params, 'to')}
-              />
-            </label>
-            <label>
-              Personen
-              <input
-                type="number"
-                name="persons"
-                min={1}
-                required
-                defaultValue={prev(params, 'persons')}
-              />
-            </label>
-            <label>
-              Art der Veranstaltung
-              <input
-                type="text"
-                name="event_type"
-                placeholder="z. B. Kindergeburtstag, Schulklasse"
-                defaultValue={prev(params, 'event_type')}
-              />
-            </label>
-          </div>
-        </div>
+        <BookingComposer
+          tariffConfig={config}
+          extrasCatalogue={extrasCatalogue}
+          initial={{
+            from: prev(params, 'from'),
+            to: prev(params, 'to'),
+            persons: prev(params, 'persons'),
+            eventType: prev(params, 'event_type'),
+            extras: prevList(params, 'extras'),
+          }}
+        />
 
-        {config && (config.extras.length > 0 || config.bikePricePerUnit != null) && (
+        {config?.bikePricePerUnit != null && (
           <div className="panel">
-            <h2 style={{ marginTop: 0 }}>Extras</h2>
-            {config.extras.map((x) =>
-              x.type === 'quantity' ? (
-                <label key={x.id}>
-                  {x.labelDe} (je {x.pricePerUnit.toFixed(2)} €
-                  {x.min ? `, min. ${x.min}` : ''}
-                  {x.max ? `, max. ${x.max}` : ''})
-                  <input
-                    type="number"
-                    name={`extra_qty_${x.id}`}
-                    min={x.min ?? 0}
-                    max={x.max}
-                    defaultValue={prev(params, `extra_qty_${x.id}`)}
-                  />
-                </label>
-              ) : (
-                <label key={x.id} style={{ fontWeight: 400, color: 'var(--fg)', marginBottom: 4 }}>
-                  <input
-                    type="checkbox"
-                    name="extras"
-                    value={x.id}
-                    defaultChecked={selectedExtras.has(x.id)}
-                    style={{ width: 'auto', display: 'inline', marginRight: 8 }}
-                  />
-                  {x.labelDe} ({x.price.toFixed(2)} €)
-                </label>
-              ),
-            )}
-            {config.bikePricePerUnit != null && (
-              <label style={{ marginTop: 12 }}>
-                Kinderfahrräder (Anzahl, je {config.bikePricePerUnit.toFixed(2)} €)
-                <input
-                  type="number"
-                  name="bikes"
-                  min={0}
-                  defaultValue={prev(params, 'bikes')}
-                />
-              </label>
-            )}
+            <h2 style={{ marginTop: 0 }}>Kinderfahrräder</h2>
+            <label className="col-4">
+              Anzahl (je {config.bikePricePerUnit.toFixed(2)} €)
+              <input type="number" name="bikes" min={0} defaultValue={prev(params, 'bikes')} />
+            </label>
           </div>
         )}
 
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>Kontakt</h2>
-          <div className="grid-2">
-            <label>
+          {/* Widths follow the content: a house number is not as wide as a
+              street, and a first name sits beside its surname rather than on
+              the next row. See .formgrid in globals.css. */}
+          <div className="formgrid">
+            <label className="col-3">
               Anrede
-              <input type="text" name="salutation" defaultValue={prev(params, 'salutation')} />
+              <select name="salutation" defaultValue={prev(params, 'salutation')}>
+                <option value="">—</option>
+                {SALUTATIONS.map((sal) => (
+                  <option key={sal} value={sal}>
+                    {sal}
+                  </option>
+                ))}
+              </select>
             </label>
-            <label>
-              Einrichtung / Organisation
-              <input
-                type="text"
-                name="organization"
-                defaultValue={prev(params, 'organization')}
-              />
-            </label>
-            <label>
+            <label className="col-4">
               Vorname
               <input type="text" name="first_name" defaultValue={prev(params, 'first_name')} />
             </label>
-            <label>
+            <label className="col-5">
               Nachname
               <input type="text" name="last_name" defaultValue={prev(params, 'last_name')} />
             </label>
-            <label>
+
+            <label className="col-12">
+              Einrichtung / Organisation
+              <input type="text" name="organization" defaultValue={prev(params, 'organization')} />
+            </label>
+
+            <label className="col-7">
               E-Mail
               <input type="email" name="email" defaultValue={prev(params, 'email')} />
             </label>
-            <label>
+            <label className="col-5">
               Telefon
-              <input type="text" name="phone" defaultValue={prev(params, 'phone')} />
+              <input type="tel" name="phone" defaultValue={prev(params, 'phone')} />
             </label>
-            <label>
-              Straße
-              <input type="text" name="street" defaultValue={prev(params, 'street')} />
-            </label>
-            <label>
-              Hausnummer
-              <input type="text" name="house" defaultValue={prev(params, 'house')} />
-            </label>
-            <label>
-              PLZ
-              <input type="text" name="zip" defaultValue={prev(params, 'zip')} />
-            </label>
-            <label>
-              Ort
-              <input type="text" name="city" defaultValue={prev(params, 'city')} />
-            </label>
-            <label>
+
+            <AddressFields
+              initial={{
+                street: prev(params, 'street'),
+                house: prev(params, 'house'),
+                zip: prev(params, 'zip'),
+                city: prev(params, 'city'),
+              }}
+            />
+
+            <label className="col-5">
               Sprache der Korrespondenz
               <select name="lang" defaultValue={prev(params, 'lang') || 'de'}>
                 <option value="de">Deutsch</option>

@@ -1048,3 +1048,138 @@ details.card[open] > summary {
   border-color: var(--accent-strong);
   color: #fff;
 }
+
+/* ------------------------------------------------------------- form grid */
+/* A twelve-column grid so a field can be the width its CONTENT deserves.
+   `.grid-2`'s auto-fit made every box the same size, which is why a house
+   number was as wide as a street name and why a first name and a surname
+   landed on different rows. Below 640px everything becomes full width — the
+   only place where equal widths are the right answer. */
+
+.formgrid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--s3) var(--s4);
+  align-items: start;
+}
+
+.formgrid > * {
+  grid-column: span 12;
+  margin-bottom: 0;
+}
+
+.col-2 { grid-column: span 2; }
+.col-3 { grid-column: span 3; }
+.col-4 { grid-column: span 4; }
+.col-5 { grid-column: span 5; }
+.col-6 { grid-column: span 6; }
+.col-7 { grid-column: span 7; }
+.col-8 { grid-column: span 8; }
+.col-9 { grid-column: span 9; }
+.col-12 { grid-column: span 12; }
+
+@media (max-width: 640px) {
+  .formgrid > * {
+    grid-column: span 12 !important;
+  }
+}
+
+/* A date + time pair that should never break apart mid-field. */
+.datetime {
+  display: flex;
+  gap: var(--s2);
+  align-items: stretch;
+}
+.datetime input[type="date"] {
+  flex: 1 1 60%;
+  min-width: 0;
+}
+.datetime select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 8.5ch;
+}
+
+/* The plain-language echo under a date range: what was actually chosen, in
+   German, regardless of what format the browser's own picker shows. */
+.datetime__echo {
+  margin: var(--s2) 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.datetime__echo strong {
+  color: var(--fg);
+}
+
+/* ------------------------------------------------------- live price panel */
+
+.pricebox {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: var(--s4);
+}
+.pricebox__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s3);
+  margin-bottom: var(--s3);
+}
+.pricebox__total {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.pricebox table {
+  font-size: 13px;
+}
+.pricebox td {
+  border-bottom: none;
+  padding: 3px 0;
+  white-space: normal;
+}
+.pricebox td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pricebox tr.is-total td {
+  border-top: 1px solid var(--line-strong);
+  padding-top: var(--s2);
+  font-weight: 700;
+}
+
+/* The address suggestion list. A plain list of buttons rather than a combobox
+   widget: it is reachable by Tab, works without pointer events, and needs no
+   ARIA choreography to be understood by a screen reader. */
+.addrlist {
+  list-style: none;
+  margin: 0;
+  padding: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.addrlist li + li {
+  border-top: 1px solid var(--line);
+}
+.addrlist button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-weight: 400;
+  padding: var(--s2) var(--s3);
+  cursor: pointer;
+}
+.addrlist button:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
