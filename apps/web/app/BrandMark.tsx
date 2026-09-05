@@ -15,8 +15,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** Candidates in preference order. SVG first: it stays sharp at any size. */
-const CANDIDATES = ['/kidbike-logo.svg', '/kidbike-logo.png'];
+/**
+ * Candidates in preference order. SVG first because it stays sharp at any
+ * size; `logo-1920w.webp` is in the list because that is what the file is
+ * actually called on kidbike.de — dropping it in unrenamed should just work.
+ */
+const CANDIDATES = [
+  '/kidbike-logo.svg',
+  '/kidbike-logo.png',
+  '/kidbike-logo.webp',
+  '/logo-1920w.webp',
+];
 
 const logoSrc: string | null = (() => {
   for (const rel of CANDIDATES) {

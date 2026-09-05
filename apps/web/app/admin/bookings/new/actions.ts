@@ -20,6 +20,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { adminClient } from '@/lib/supabase';
 import { loadLocation, parseBerlinLocal, quote } from '@/lib/booking-pricing';
+import { BIKE_SIZES, cleanBikeCounts } from '@/lib/bike-sizes';
 import {
   getSessionUser,
   canApprove,
@@ -41,6 +42,9 @@ const ECHO_FIELDS = [
   'persons',
   'event_type',
   'bikes',
+  // Each size separately, so a rejected form comes back with the bikes still
+  // chosen rather than reset to none.
+  ...BIKE_SIZES.map((b) => `bike_${b.key}`),
   'lang',
   'salutation',
   'first_name',
@@ -115,8 +119,22 @@ export async function createInternalBooking(formData: FormData): Promise<void> {
     'standard') as TariffType;
   const extras = formData.getAll('extras').map(String).filter(Boolean);
   const extraQuantities = readExtraQuantities(formData);
-  const bikeCount = Number(formData.get('bikes') ?? 0);
-  const bikes = Number.isFinite(bikeCount) && bikeCount > 0 ? { total: bikeCount } : null;
+  // Per size rather than one total: a 26" frame is no use to a four-year-old,
+  // and the venue had to phone back for the sizes every time. The keys are the
+  // ones @vs/pricing already documents for its `bikes` record, so the stored
+  // JSON and the pricing engine needed no change.
+  //
+  // `bikes` (a single number) is still read as a fallback so a booking form
+  // left open across this deploy still submits something meaningful.
+  const perSize: Record<string, number> = {};
+  for (const size of BIKE_SIZES) {
+    perSize[size.key] = Number(formData.get(`bike_${size.key}`) ?? 0);
+  }
+  let bikes = cleanBikeCounts(perSize);
+  if (!bikes) {
+    const legacyCount = Number(formData.get('bikes') ?? 0);
+    bikes = Number.isFinite(legacyCount) && legacyCount > 0 ? { total: legacyCount } : null;
+  }
 
   const location = await loadLocation(code);
   if (!location) backWithError(formData, 'location_not_found');

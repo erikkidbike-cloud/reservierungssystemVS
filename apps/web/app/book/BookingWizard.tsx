@@ -36,6 +36,8 @@ import { I18N, getTermsForSchool, publicErrorMessage, type Lang } from '@/lib/pu
 import { HONEYPOT_FIELD } from '@/lib/honeypot';
 import { SALUTATIONS } from '@/lib/salutations';
 import { AddressFields } from '../AddressFields';
+import { BikePicker } from '../BikePicker';
+import { cleanBikeCounts } from '@/lib/bike-sizes';
 
 /** Every quarter hour of the day as "HH:MM" — the only times bookable here. */
 const QUARTER_HOURS: string[] = Array.from({ length: 24 * 4 }, (_, i) => {
@@ -146,7 +148,7 @@ export default function BookingWizard({
   const [eventType, setEventType] = useState('');
   const [extras, setExtras] = useState<string[]>([]);
   const [extraQuantities, setExtraQuantities] = useState<Record<string, string>>({});
-  const [bikeCount, setBikeCount] = useState('');
+  const [bikes, setBikes] = useState<Record<string, number>>({});
 
   const [salutation, setSalutation] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -221,12 +223,12 @@ export default function BookingWizard({
         persons: personsNum,
         extras,
         extraQuantities: extraQuantitiesNum,
-        bikes: bikeCount ? { total: Number(bikeCount) || 0 } : undefined,
+        bikes: cleanBikeCounts(bikes) ?? undefined,
         lang,
       },
       tariffConfig,
     );
-  }, [tariffConfig, start, end, timeOk, personsNum, extras, extraQuantitiesNum, bikeCount, lang]);
+  }, [tariffConfig, start, end, timeOk, personsNum, extras, extraQuantitiesNum, bikes, lang]);
 
   function toggleExtra(id: string) {
     setExtras((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -260,7 +262,7 @@ export default function BookingWizard({
           persons: personsNum,
           extras,
           extra_quantities: extraQuantitiesNum,
-          bikes: bikeCount ? { total: Number(bikeCount) || 0 } : undefined,
+          bikes: cleanBikeCounts(bikes) ?? undefined,
           event_type: eventType || undefined,
           message: message || undefined,
           lang,
@@ -692,15 +694,12 @@ export default function BookingWizard({
                 ),
               )}
               {tariffConfig.bikePricePerUnit != null && (
-                <label>
-                  {t.bikesLabel}
-                  <input
-                    type="number"
-                    min={0}
-                    value={bikeCount}
-                    onChange={(e) => setBikeCount(e.target.value)}
-                  />
-                </label>
+                <BikePicker
+                  counts={bikes}
+                  onChange={setBikes}
+                  pricePerUnit={tariffConfig.bikePricePerUnit}
+                  lang={lang}
+                />
               )}
             </>
           )}

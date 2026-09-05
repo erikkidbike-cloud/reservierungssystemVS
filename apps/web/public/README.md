@@ -9,7 +9,9 @@ Static files served from the site root. `public/logo.png` is reachable at
 first one that exists:
 
     apps/web/public/kidbike-logo.svg     ← preferred
-    apps/web/public/kidbike-logo.png     ← fallback
+    apps/web/public/kidbike-logo.png
+    apps/web/public/kidbike-logo.webp
+    apps/web/public/logo-1920w.webp      ← the name it already has on kidbike.de
 
 Nothing else needs changing: no import, no component edit. Add the file,
 commit, deploy, and every place the wordmark appears — the console's top bar,

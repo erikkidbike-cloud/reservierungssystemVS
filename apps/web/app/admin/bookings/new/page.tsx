@@ -233,17 +233,8 @@ export default async function NewBookingPage({
             eventType: prev(params, 'event_type'),
             extras: prevList(params, 'extras'),
           }}
+          bikePricePerUnit={config?.bikePricePerUnit ?? null}
         />
-
-        {config?.bikePricePerUnit != null && (
-          <div className="panel">
-            <h2 style={{ marginTop: 0 }}>Kinderfahrräder</h2>
-            <label className="col-4">
-              Anzahl (je {config.bikePricePerUnit.toFixed(2)} €)
-              <input type="number" name="bikes" min={0} defaultValue={prev(params, 'bikes')} />
-            </label>
-          </div>
-        )}
 
         <div className="panel">
           <h2 style={{ marginTop: 0 }}>Kontakt</h2>

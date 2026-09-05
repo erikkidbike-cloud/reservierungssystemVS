@@ -1358,3 +1358,156 @@ details.card[open] > summary {
   pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
+
+/* ------------------------------------------------------------ date field */
+/* TT.MM.JJJJ as text, with the native picker parked behind the calendar
+   button. See app/DateField.tsx for why the native control cannot be the
+   thing the date is read from. */
+
+.datefield {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.datefield input[type='text'] {
+  margin-top: 0;
+  padding-right: 34px;
+  font-variant-numeric: tabular-nums;
+}
+.datefield input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.datefield__pick {
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  bottom: 1px;
+  width: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+.datefield__pick:hover {
+  background: var(--accent-soft);
+}
+/* Present for the picker, never shown: it would otherwise render the date in
+   the browser's own locale, which is the whole problem. */
+.datefield__native {
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* --------------------------------------------------------- bike selection */
+/* Compact and conditional: the size list only exists once someone says they
+   want bikes, which is the minority of bookings. */
+
+.bikes__q {
+  font-weight: 600;
+  margin: 0 0 var(--s2);
+}
+
+.bikes__choice {
+  display: flex;
+  gap: var(--s5);
+  flex-wrap: wrap;
+  margin-bottom: var(--s3);
+}
+.bikes__choice label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
+  font-weight: 400;
+  color: var(--fg);
+  cursor: pointer;
+}
+.bikes__choice input {
+  width: auto;
+  margin: 0;
+}
+
+.bikes__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 var(--s2);
+}
+
+/* Two columns where there is room: six sizes stacked full-width was the
+   "enormous bar" this replaces. 300px is the width at which "Laufräder
+   (2–3 Jahre)" and its stepper sit on one line — narrower and the age wraps
+   under the name, which reads as two separate rows. */
+.bikes__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2px var(--s5);
+}
+.bikes__list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--line);
+}
+.bikes__name {
+  font-size: 14px;
+  min-width: 0;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex: none;
+}
+.stepper button {
+  width: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.stepper button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.stepper button:disabled {
+  color: var(--line-strong);
+  cursor: default;
+  opacity: 1;
+}
+.stepper output {
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}

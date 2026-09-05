@@ -5,13 +5,13 @@
 //
 // Three things drove pulling it out of the server-rendered page:
 //
-//   1. `<input type="datetime-local">` renders in the BROWSER's locale, not the
-//      page's. On an English-locale machine the old form asked for
-//      "09/14/2026, 04:00 PM" — for a German venue, entered by German staff.
-//      There is no attribute that reliably fixes that, so the control is built
-//      from a date input plus a time SELECT, and a plain-German echo of the
-//      chosen range sits underneath. Whatever the browser shows in its own
-//      picker, the sentence below it is unambiguous.
+//   1. Native date and datetime inputs render in the BROWSER's locale, and no
+//      attribute changes that — `lang="de"` is honoured by Firefox and ignored
+//      by Chrome, which is why a first attempt at this still showed
+//      "09 / 22 / 2026" to German staff. So the date is a DateField (a
+//      TT.MM.JJJJ text field with the native picker behind a calendar button)
+//      and the time is a select, with a plain-German echo of the whole range
+//      underneath.
 //
 //   2. That select carries quarter-hour steps only. `step="900"` on a native
 //      time input still lets the spinner walk minute by minute; a list of
@@ -28,6 +28,9 @@
 
 import { useMemo, useState } from 'react';
 import { computePrice, type TariffConfig } from '@vs/pricing';
+import { DateField } from '../../../DateField';
+import { BikePicker } from '../../../BikePicker';
+import { cleanBikeCounts } from '@/lib/bike-sizes';
 
 export interface ComposerExtra {
   id: string;
@@ -82,6 +85,7 @@ export function BookingComposer({
   tariffConfig,
   extrasCatalogue,
   initial,
+  bikePricePerUnit = null,
 }: {
   tariffConfig: TariffConfig | null;
   extrasCatalogue: ComposerExtra[];
@@ -92,6 +96,8 @@ export function BookingComposer({
     eventType: string;
     extras: string[];
   };
+  /** null when this tariff does not lend bikes at all. */
+  bikePricePerUnit?: number | null;
 }) {
   const [fromDate, setFromDate] = useState(initial.from.slice(0, 10));
   const [fromTime, setFromTime] = useState(initial.from.slice(11, 16) || '14:00');
@@ -101,6 +107,7 @@ export function BookingComposer({
   const [eventType, setEventType] = useState(initial.eventType);
   const [extras, setExtras] = useState<string[]>(initial.extras);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
+  const [bikes, setBikes] = useState<Record<string, number>>({});
 
   const start = parseLocal(fromDate, fromTime);
   const end = parseLocal(toDate, toTime);
@@ -117,11 +124,23 @@ export function BookingComposer({
     return out;
   }, [quantities]);
 
+  const bikeCounts = useMemo(() => cleanBikeCounts(bikes), [bikes]);
+
   const price = useMemo(() => {
     if (!tariffConfig || !start || !end || durationMin <= 0 || personsNum <= 0) return null;
     try {
       return computePrice(
-        { start, end, persons: personsNum, extras, extraQuantities: quantitiesNum, lang: 'de' },
+        {
+          start,
+          end,
+          persons: personsNum,
+          extras,
+          extraQuantities: quantitiesNum,
+          // Was missing, so the preview ignored the bikes entirely and quoted
+          // less than the server went on to charge.
+          bikes: bikeCounts ?? undefined,
+          lang: 'de',
+        },
         tariffConfig,
       );
     } catch {
@@ -129,7 +148,7 @@ export function BookingComposer({
       // half-entered form must never take the whole screen down.
       return null;
     }
-  }, [tariffConfig, start, end, durationMin, personsNum, extras, quantitiesNum]);
+  }, [tariffConfig, start, end, durationMin, personsNum, extras, quantitiesNum, bikeCounts]);
 
   function toggleExtra(id: string) {
     setExtras((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -150,17 +169,15 @@ export function BookingComposer({
           <label className="col-6">
             Von
             <span className="datetime">
-              <input
-                type="date"
-                lang="de"
+              <DateField
                 value={fromDate}
                 required
-                onChange={(e) => {
-                  setFromDate(e.target.value);
+                onChange={(iso) => {
+                  setFromDate(iso);
                   // Almost every booking starts and ends on one day; keeping
                   // the end date in step means the second field is usually
                   // already right, and it can still be changed afterwards.
-                  if (!toDate || toDate === fromDate) setToDate(e.target.value);
+                  if (!toDate || toDate === fromDate) setToDate(iso);
                 }}
               />
               <select value={fromTime} onChange={(e) => setFromTime(e.target.value)}>
@@ -176,13 +193,7 @@ export function BookingComposer({
           <label className="col-6">
             Bis
             <span className="datetime">
-              <input
-                type="date"
-                lang="de"
-                value={toDate}
-                required
-                onChange={(e) => setToDate(e.target.value)}
-              />
+              <DateField value={toDate} required onChange={setToDate} />
               <select value={toTime} onChange={(e) => setToTime(e.target.value)}>
                 {TIME_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -272,6 +283,16 @@ export function BookingComposer({
               ),
             )}
           </div>
+        </div>
+      )}
+
+      {bikePricePerUnit != null && (
+        <div className="panel">
+          <BikePicker
+            counts={bikes}
+            onChange={setBikes}
+            pricePerUnit={bikePricePerUnit}
+          />
         </div>
       )}
 
