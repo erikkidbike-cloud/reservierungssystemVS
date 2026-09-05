@@ -1,14 +1,33 @@
 // The KidBike wordmark.
 //
-// Drawn as SVG text rather than loaded as an image, for the same reason
-// packages/documents/src/nv-template.ts does it: there is no logo file in this
-// repository yet. It reproduces the real mark closely — "Kid" and "Bike" heavy
-// and closed up, "e. V." lighter and spaced — and it scales, prints and
-// recolours for dark mode without a second asset.
+// Uses the REAL logo file whenever one is present at apps/web/public/ — see
+// that directory's README for the exact filenames. Until then it draws a close
+// approximation as SVG text, so the app is never showing a broken image, but
+// the drawn version is a placeholder and not the mark: letter shapes, spacing
+// and the exact blue are the logo's own and should not be imitated in
+// production.
 //
-// When a real SVG or PNG turns up, drop it in apps/web/public/ and swap the
-// body of this component for an <img>; nothing else needs to change, since
-// every caller goes through here.
+// The check happens once at module load rather than per render, and only on
+// the server (every caller — the console's top bar, PublicShell, the widget —
+// is a server component). Dropping the file in is therefore the whole
+// installation step: no import to add, no component to change.
+
+import fs from 'node:fs';
+import path from 'node:path';
+
+/** Candidates in preference order. SVG first: it stays sharp at any size. */
+const CANDIDATES = ['/kidbike-logo.svg', '/kidbike-logo.png'];
+
+const logoSrc: string | null = (() => {
+  for (const rel of CANDIDATES) {
+    try {
+      if (fs.existsSync(path.join(process.cwd(), 'public', rel.slice(1)))) return rel;
+    } catch {
+      // A read-only or unusual filesystem is not a reason to fail a page.
+    }
+  }
+  return null;
+})();
 
 export function BrandMark({
   height = 26,
@@ -17,8 +36,14 @@ export function BrandMark({
   height?: number;
   title?: string;
 }) {
-  // The viewBox is sized to the drawn text so the component can be asked for a
-  // height and get sensible width for free.
+  if (logoSrc) {
+    // Intrinsic size is unknown (the file is supplied by the owner), so width
+    // is left to the aspect ratio and only the height is pinned — the same
+    // thing the drawn fallback does.
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={logoSrc} alt={title} style={{ height, width: 'auto', display: 'block' }} />;
+  }
+
   return (
     <svg
       height={height}

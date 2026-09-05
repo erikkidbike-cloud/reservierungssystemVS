@@ -1,18 +1,14 @@
 // The frame around every page a customer sees: the landing page, the booking
 // wizard and the signing page.
 //
-// Until now those three had no shared chrome at all — a booking request opened
-// on a bare white page with a heading, which reads as a form somebody left
-// lying about rather than as part of KidBike. They now carry the same wordmark
-// bar and the same apricot footer as kidbike.de, so following a link from the
-// site into the booking form does not feel like leaving it.
-//
-// The address and phone number come from @vs/documents' ORGANISATION — the
-// same constant the Nutzungsvereinbarung prints. One place to correct if the
-// office ever moves.
+// Deliberately thin. This app is only ever one of two things — a page embedded
+// in or linked from kidbike.de, or the staff console — and in both cases a
+// second contact block underneath is a duplicate: the website already carries
+// the address, and staff do not need to be told where they work. So the shell
+// is a wordmark, a way back to the site, and a way in to the console. Nothing
+// else.
 
 import Link from 'next/link';
-import { ORGANISATION } from '@vs/documents';
 import { BrandMark } from './BrandMark';
 
 export function PublicShell({
@@ -28,14 +24,8 @@ export function PublicShell({
 }) {
   const t =
     lang === 'en'
-      ? { home: 'kidbike.de', find: 'Where to find us', mail: 'Email', call: 'Call us', staff: 'Staff login' }
-      : {
-          home: 'kidbike.de',
-          find: 'Hier finden Sie uns',
-          mail: 'E-Mail',
-          call: 'Rufen Sie uns an',
-          staff: 'Interne Verwaltung',
-        };
+      ? { site: 'kidbike.de', signIn: 'Staff login' }
+      : { site: 'kidbike.de', signIn: 'Anmelden' };
 
   return (
     <div className="publicshell">
@@ -45,43 +35,19 @@ export function PublicShell({
         </a>
         <span className="topbar__spacer" />
         <a className="publicshell__toplink" href="https://www.kidbike.de">
-          {t.home} ↗
+          {t.site} ↗
         </a>
+        {/* The only way into the console from a public page. It used to live in
+            the footer; the footer is gone, and a sign-in link that exists only
+            on a page nobody scrolls to is a sign-in link nobody finds. */}
+        <Link className="btnlink btnlink--sm" href="/login">
+          {t.signIn}
+        </Link>
       </header>
 
       <main className="wrap" style={width ? { maxWidth: width } : undefined}>
         {children}
       </main>
-
-      <footer className="publicshell__foot">
-        <div className="publicshell__footinner">
-          <div>
-            <h2 className="publicshell__foottitle">{ORGANISATION.name}</h2>
-            <p className="small" style={{ marginBottom: 0 }}>
-              {t.find}:<br />
-              {ORGANISATION.street}
-              <br />
-              {ORGANISATION.city}
-            </p>
-          </div>
-          <div>
-            <p className="small" style={{ marginBottom: 0 }}>
-              {t.mail}: <a href={`mailto:${ORGANISATION.email}`}>{ORGANISATION.email}</a>
-              <br />
-              {t.call}: {ORGANISATION.phone}
-            </p>
-          </div>
-          <div>
-            <p className="small" style={{ marginBottom: 0 }}>
-              <a href="https://www.kidbike.de/datenschutz/">Datenschutz</a>
-              <br />
-              <a href="https://www.kidbike.de/impressum/">Impressum</a>
-              <br />
-              <Link href="/login">{t.staff}</Link>
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

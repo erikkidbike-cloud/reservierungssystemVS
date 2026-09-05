@@ -931,9 +931,9 @@ details.card[open] > summary {
 
 /* --------------------------------------------------- public shell (site) */
 /* The frame around the customer-facing pages. Mirrors kidbike.de: white brand
-   bar on top, apricot footer at the bottom, content between. Sticky footer so
-   a short page (a signing confirmation, an error) does not leave the footer
-   floating halfway up the screen. */
+   bar with a way back to the site and a way in to the console, then the page.
+   No footer: this app is either embedded in kidbike.de or it is the staff
+   console, and a second address block is a duplicate in both cases. */
 
 .publicshell {
   display: flex;
@@ -959,37 +959,6 @@ details.card[open] > summary {
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-}
-
-.publicshell__foot {
-  background: var(--brand-sand);
-  color: var(--brand-sand-ink);
-  border-top: 1px solid var(--brand-sand-strong);
-  margin-top: var(--s7);
-}
-
-.publicshell__footinner {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: var(--s6) var(--s5);
-  display: grid;
-  gap: var(--s5);
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-
-.publicshell__foottitle {
-  margin: 0 0 var(--s2);
-  font-size: 16px;
-  color: var(--accent);
-}
-
-.publicshell__foot a {
-  color: var(--brand-sand-ink);
-  text-decoration: underline;
-}
-
-.publicshell__foot a:hover {
-  color: var(--accent-strong);
 }
 
 /* --------------------------------------------------------- page headings */
@@ -1026,6 +995,12 @@ details.card[open] > summary {
   gap: var(--s2);
   align-items: center;
   flex-wrap: wrap;
+}
+
+/* A smaller pill, for a link sitting in a header bar beside body text. */
+.btnlink--sm {
+  padding: 6px var(--s4);
+  font-size: 13px;
 }
 
 /* A link that should read as a button (the site's calls to action are links). */
