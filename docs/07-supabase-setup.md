@@ -44,7 +44,19 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    supabase/migrations/0013_mail_templates.sql
    supabase/migrations/0014_enhancements.sql
    supabase/migrations/0015_reminders_ical_ratelimit.sql
+   supabase/migrations/0016_roles_permissions.sql
+   supabase/migrations/0017_waitlist_offers.sql
+   supabase/migrations/0018_occupancy.sql
    ```
+
+   **`0016` is the only one that is destructive-looking, and it is safe.** It
+   converts `profiles.role` from an enum to a foreign key into the new `roles`
+   table and re-creates every RLS policy in permission terms. It prints
+   `NOTICE: drop cascades to N other objects` twice — that is expected and is
+   the policies being rebuilt three sections further down, not data being
+   lost. Existing profiles keep their role: the five old enum values are
+   seeded as protected system roles with the same keys. It is also safe to run
+   twice.
 
    **`0009` matters even though it looks like boilerplate.** Without it, the
    app's `service_role` key — which is what the server-side code uses for
@@ -276,6 +288,19 @@ alongside the production one.
    second one fail with `slot_taken` (409) — that's the overlap exclusion
    constraint working through the real API, not just in the local test.
 
+## 6b. Set up the roles
+
+After promoting yourself to `admin` (step 3), open **Rollen** in the nav. The
+five roles you had before are there, each already carrying the permissions its
+old enum value implied — nothing needs changing for the system to work as it
+did.
+
+What is new is that you can add your own, and that every permission is a
+checkbox. See `docs/03-roles-and-rls.md` for the table of what each built-in
+role starts with, and for the three guard rails (the admin role keeps its own
+access, a system role cannot be deleted, and the last active administrator
+cannot be demoted).
+
 ## 7. The one thing that needs scheduling: expired holds
 
 `expire_holds()` exists (`0007`) but nothing calls it on a schedule yet. Run
@@ -365,8 +390,11 @@ point at it).
 ## Scheduled jobs (cron)
 
 Four endpoints do the recurring work. All are authorised by `CRON_SECRET`
-(see `apps/web/.env.example`) — sent either as `Authorization: Bearer <secret>`
-or as `?secret=<secret>` — and all fail closed if that variable is unset.
+(see `apps/web/.env.example`), which may be sent any of three ways —
+`Authorization: Bearer <secret>`, an `x-cron-secret` header, or
+`?secret=<secret>` — and all fail closed if that variable is unset. (Each
+endpoint used to accept only some of those; they share one implementation
+now, so one scheduler configuration drives all four.)
 
 | Endpoint | What it does | Suggested schedule |
 |---|---|---|
