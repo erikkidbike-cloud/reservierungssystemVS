@@ -18,26 +18,11 @@ import { serverClient } from '@/lib/supabase';
 import { loadActiveLocations, loadTariffConfig } from '@/lib/booking-pricing';
 import { todayInBerlin, addDaysToDateString, berlinDateOf } from '@/lib/berlin-time';
 import type { Location } from '@/lib/db-types';
-import BookingWizard, { type DayBlock, type PublicLocation } from './BookingWizard';
+import BookingWizard, { type DayBlock } from './BookingWizard';
+import { toPublicLocation } from '@/lib/public-location';
 import { PublicShell } from '../PublicShell';
 
 export const dynamic = 'force-dynamic';
-
-/** The wizard never sees cc_emails, hold_business_days or any other internal field. */
-function toPublicLocation(l: Location): PublicLocation {
-  return {
-    code: l.code,
-    name: l.name,
-    address: l.address,
-    phone: l.phone,
-    onlineBookability: l.online_bookability,
-    closingHour: l.closing_hour,
-    minLeadDays: l.min_lead_days,
-    minDurationMinutes: l.min_duration_minutes,
-    gridMinHour: l.grid_min_hour,
-    gridMaxEndHour: l.grid_max_end_hour,
-  };
-}
 
 /** How many days ahead the "has bookings" dots on the date picker look. */
 const BROWSE_WINDOW_DAYS = 60;

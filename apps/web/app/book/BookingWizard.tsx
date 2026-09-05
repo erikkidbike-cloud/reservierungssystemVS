@@ -97,7 +97,16 @@ export default function BookingWizard({
   bookedDates,
   tariffConfig,
   tariffError,
-}: Props) {
+  initialFrom,
+  initialTo,
+  hideDayBar = false,
+}: Props & {
+  /** "HH:MM" — preselected by the embeddable week grid (app/widget/booking). */
+  initialFrom?: string;
+  initialTo?: string;
+  /** The widget draws its own week grid, so the day bar would be a duplicate. */
+  hideDayBar?: boolean;
+}) {
   const [lang, setLang] = useState<Lang>('de');
   const t = I18N[lang];
   const bookedSet = useMemo(() => new Set(bookedDates), [bookedDates]);
@@ -121,8 +130,18 @@ export default function BookingWizard({
   const gridEndMin = Math.min(location.gridMaxEndHour, 24) * 60;
   const defaultStart = Math.max(gridStartMin, roundToStep(14 * 60));
 
-  const [fromTime, setFromTime] = useState(minToHHMM(defaultStart));
-  const [toTime, setToTime] = useState(minToHHMM(Math.min(defaultStart + 120, gridEndMin)));
+  const [fromTime, setFromTime] = useState(initialFrom || minToHHMM(defaultStart));
+  const [toTime, setToTime] = useState(
+    initialTo || minToHHMM(Math.min(defaultStart + 120, gridEndMin)),
+  );
+
+  // A new selection in the week grid arrives as new props on the same mounted
+  // component (the widget navigates rather than remounting), so the times have
+  // to follow it — otherwise the second slot someone picks is ignored.
+  useEffect(() => {
+    if (initialFrom) setFromTime(initialFrom);
+    if (initialTo) setToTime(initialTo);
+  }, [initialFrom, initialTo]);
   const [persons, setPersons] = useState('');
   const [eventType, setEventType] = useState('');
   const [extras, setExtras] = useState<string[]>([]);
@@ -408,6 +427,7 @@ export default function BookingWizard({
 
           <div
             className="daybar"
+            hidden={hideDayBar}
             onClick={handleBarClick}
             role="button"
             tabIndex={0}

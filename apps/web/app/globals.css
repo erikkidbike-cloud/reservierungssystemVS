@@ -1183,3 +1183,203 @@ details.card[open] > summary {
   background: var(--accent-soft);
   color: var(--accent-strong);
 }
+
+/* ============================================================ embed widget */
+/* /widget/booking — rendered inside an iframe on kidbike.de, so it carries its
+   own compact chrome and no site header or footer. Everything is sized in the
+   same tokens as the rest of the app, so a brand change reaches it too. */
+
+.widget {
+  background: var(--surface);
+}
+
+.widget__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+
+.widget__title {
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--accent);
+  max-width: 12ch;
+}
+
+.widget__field {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.widget__field select {
+  margin-top: 0;
+  width: auto;
+  min-width: 12ch;
+}
+
+.widget__body {
+  padding: var(--s4);
+}
+
+/* --------------------------------------------------------- the week grid */
+
+.wk__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+
+.wk__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 32px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 14px;
+}
+.wk__nav:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The grid scrolls sideways rather than squeezing seven days into a phone. */
+.wk__scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.wk__grid {
+  display: grid;
+  grid-template-columns: 3.5rem repeat(7, minmax(84px, 1fr));
+  min-width: 640px;
+}
+
+.wk__times {
+  border-right: 1px solid var(--line);
+}
+.wk__time {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px var(--s2) 0 0;
+  text-align: right;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.wk__col + .wk__col,
+.wk__col {
+  border-left: 1px solid var(--line);
+}
+.wk__col--today {
+  background: var(--warn-soft);
+}
+
+.wk__dayhead {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.wk__slots {
+  position: relative;
+  touch-action: none; /* the drag is ours, not the browser's scroll */
+  cursor: crosshair;
+}
+
+/* Hour lines without an element per quarter hour. */
+.wk__rules {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--line) 0 1px,
+    transparent 1px 48px
+  );
+  pointer-events: none;
+}
+
+.wk__block {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 5px;
+  font-size: 11px;
+  line-height: 1.25;
+  overflow: hidden;
+  pointer-events: none;
+}
+.wk__block--hold {
+  background: var(--warn);
+}
+.wk__blocktime {
+  display: block;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+.wk__blocklabel {
+  display: block;
+  font-weight: 600;
+}
+
+.wk__closed {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--line),
+    var(--line) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  pointer-events: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 4px;
+}
+.wk__closed span {
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--surface);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.wk__pick {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 4px;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
