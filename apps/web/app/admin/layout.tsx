@@ -1,11 +1,17 @@
-// Internal console shell: authentication guard + role-aware navigation.
-// Individual pages still query role-appropriate relations — this nav only hides
-// links, it is not the security boundary. RLS and the role views are.
+// Internal console shell: authentication guard, brand bar, and the navigation
+// entries this particular person may see.
+//
+// Which entries exist is decided HERE, on the server, from the caller's
+// permissions — AdminNav only renders and highlights them. As ever, hiding a
+// link is not the security boundary; RLS and the role-scoped views are. A link
+// someone reaches by typing the URL still lands on a page that refuses them.
 
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { serverClient } from '@/lib/supabase';
 import { findSchemaGaps } from '@/lib/schema-check';
+import { BrandMark } from '../BrandMark';
+import { AdminNav, type NavEntry, type NavItem } from './AdminNav';
 import {
   getSessionUser,
   canManageTariffs,
@@ -17,6 +23,7 @@ import {
   canManageEvents,
   canManageMailTemplates,
   canManageRoles,
+  canManageWaitlist,
 } from '@/lib/auth';
 import { signOut } from './actions';
 
@@ -59,29 +66,54 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     );
   }
 
+  // Grouped by the job, not by the screen. The six things somebody opens in a
+  // normal week stay one click away; everything that gets configured once and
+  // then left alone sits behind "Einstellungen". A menu with nothing the
+  // caller may see disappears entirely rather than opening onto an empty
+  // panel, which is why each `items` list is filtered before it is counted.
+  const settingsItems: NavItem[] = [
+    ...(canManageTariffs(auth) ? [{ href: '/admin/tariffs', label: 'Preise und Extras' }] : []),
+    ...(canManageAgreements(auth) ? [{ href: '/admin/agreements', label: 'Vertragstexte' }] : []),
+    ...(canManageMailTemplates(auth)
+      ? [
+          { href: '/admin/mail-templates', label: 'E-Mail-Vorlagen' },
+          { href: '/admin/reminders', label: 'Erinnerungen' },
+        ]
+      : []),
+    ...(canManageUsers(auth) ? [{ href: '/admin/users', label: 'Benutzer' }] : []),
+    ...(canManageRoles(auth) ? [{ href: '/admin/roles', label: 'Rollen und Rechte' }] : []),
+  ];
+
+  const bookingItems: NavItem[] = [
+    { href: '/admin/bookings', label: 'Alle Buchungen' },
+    ...(canManageWaitlist(auth) ? [{ href: '/admin/waitlist', label: 'Warteliste' }] : []),
+    ...(canSeeContactData(auth) ? [{ href: '/admin/customers', label: 'Kund*innen' }] : []),
+  ];
+
+  const entries: NavEntry[] = [
+    { href: '/admin', label: 'Übersicht' },
+    // A single-destination menu is just a link with an extra click in it.
+    bookingItems.length > 1
+      ? { label: 'Buchungen', items: bookingItems }
+      : { href: '/admin/bookings', label: 'Buchungen' },
+    ...(canManageEvents(auth) ? [{ href: '/admin/events', label: 'Termine' }] : []),
+    ...(canSeeTasks(auth) ? [{ href: '/admin/tasks', label: 'Aufgaben' }] : []),
+    ...(canManagePayments(auth) ? [{ href: '/admin/payments', label: 'Zahlungen' }] : []),
+    { href: '/admin/occupancy', label: 'Auslastung' },
+    ...(settingsItems.length > 0 ? [{ label: 'Einstellungen', items: settingsItems }] : []),
+  ];
+
   return (
     <>
-      <nav className="nav">
-        <Link href="/" className="brand">
-          KidBike
+      <header className="topbar">
+        <Link href="/" aria-label="KidBike — zur öffentlichen Seite">
+          <BrandMark height={24} />
         </Link>
-        <Link href="/admin">Übersicht</Link>
-        <Link href="/admin/bookings">Buchungen</Link>
-        <Link href="/admin/occupancy">Auslastung</Link>
-        {canSeeContactData(auth) && <Link href="/admin/waitlist">Warteliste</Link>}
-        {canSeeContactData(auth) && <Link href="/admin/customers">Kunden</Link>}
-        {canSeeTasks(auth) && <Link href="/admin/tasks">Aufgaben</Link>}
-        {canManageEvents(auth) && <Link href="/admin/events">Termine</Link>}
-        {canManagePayments(auth) && <Link href="/admin/payments">Zahlungen</Link>}
-        {canManageMailTemplates(auth) && <Link href="/admin/mail-templates">E-Mail-Vorlagen</Link>}
-        {canManageMailTemplates(auth) && <Link href="/admin/reminders">Erinnerungen</Link>}
-        {canManageTariffs(auth) && <Link href="/admin/tariffs">Preise</Link>}
-        {canManageAgreements(auth) && <Link href="/admin/agreements">Verträge</Link>}
-        {canManageUsers(auth) && <Link href="/admin/users">Benutzer</Link>}
-        {canManageRoles(auth) && <Link href="/admin/roles">Rollen</Link>}
-        <span className="spacer" />
-        <span className="muted small">
-          {user.email} ·{' '}
+        <span className="topbar__spacer" />
+        <span className="topbar__who">
+          <span className="topbar__email" title={user.email ?? undefined}>
+            {user.email}
+          </span>
           <span className="badge">{user.auth?.roleLabel ?? '—'}</span>
         </span>
         <form action={signOut}>
@@ -89,7 +121,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Abmelden
           </button>
         </form>
-      </nav>
+      </header>
+
+      <AdminNav entries={entries} />
+
       <main className="wrap">
         {/* A schema older than the deployed build is an operational fault, not
             a permission decision — so it says exactly that, and says what to do

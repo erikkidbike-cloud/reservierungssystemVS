@@ -19,6 +19,7 @@ import { loadActiveLocations, loadTariffConfig } from '@/lib/booking-pricing';
 import { todayInBerlin, addDaysToDateString, berlinDateOf } from '@/lib/berlin-time';
 import type { Location } from '@/lib/db-types';
 import BookingWizard, { type DayBlock, type PublicLocation } from './BookingWizard';
+import { PublicShell } from '../PublicShell';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,9 +60,15 @@ export default async function BookPage({
 
   if (!location) {
     return (
-      <main className="wrap" style={{ maxWidth: 720 }}>
-        <h1>Belegung Verkehrsschulen</h1>
-        <p className="muted">Bitte wählen Sie Ihre Verkehrsschule.</p>
+      <PublicShell width={720}>
+        <div className="pagehead">
+          <div className="pagehead__text">
+            <h1>Termin anfragen</h1>
+            <p className="pagehead__sub">
+              Bitte wählen Sie zuerst Ihre Verkehrsschule.
+            </p>
+          </div>
+        </div>
         <div className="cards">
           {publicLocations.map((l) => (
             <a key={l.code} href={`/book?school=${l.code}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -84,7 +91,7 @@ export default async function BookPage({
             </a>
           ))}
         </div>
-      </main>
+      </PublicShell>
     );
   }
 
@@ -122,10 +129,10 @@ export default async function BookPage({
 
   if (dayError) {
     return (
-      <main className="wrap">
+      <PublicShell width={720}>
         <h1>{location.name}</h1>
         <div className="notice">Kalender konnte nicht geladen werden: {dayError.message}</div>
-      </main>
+      </PublicShell>
     );
   }
 
@@ -170,7 +177,7 @@ export default async function BookPage({
   }
 
   return (
-    <main className="wrap" style={{ maxWidth: 720 }}>
+    <PublicShell width={720}>
       <p className="small">
         <a href="/book">← Alle Standorte</a>
       </p>
@@ -187,6 +194,6 @@ export default async function BookPage({
         tariffConfig={tariffConfig}
         tariffError={tariffError}
       />
-    </main>
+    </PublicShell>
   );
 }

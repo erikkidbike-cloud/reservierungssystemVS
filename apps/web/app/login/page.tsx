@@ -12,6 +12,7 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
 import { requestMagicLink } from './actions';
+import { PublicShell } from '../PublicShell';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,15 +27,19 @@ export default async function LoginPage({
   const params = await searchParams;
 
   return (
-    <main className="wrap" style={{ maxWidth: 420 }}>
-      <h1>Anmelden</h1>
-      <p className="muted">
-        KidBike-E-Mail-Adresse eingeben. Du bekommst einen Login-Link
-        zugeschickt — kein Passwort nötig.
-      </p>
+    <PublicShell width={420}>
+      <div className="pagehead">
+        <div className="pagehead__text">
+          <h1>Interne Verwaltung</h1>
+          <p className="pagehead__sub">
+            KidBike-E-Mail-Adresse eingeben. Sie bekommen einen Anmeldelink
+            zugeschickt — ein Passwort brauchen Sie nicht.
+          </p>
+        </div>
+      </div>
 
       {params.sent && (
-        <div className="notice" style={{ borderLeftColor: 'var(--accent)' }}>
+        <div className="notice notice--ok">
           Link verschickt an <strong>{params.sent}</strong>. E-Mail (auch den
           Spam-Ordner) prüfen und den Link innerhalb von 60 Minuten öffnen.
         </div>
@@ -63,6 +68,6 @@ export default async function LoginPage({
         Anmeldung mit dem KidBike-Microsoft-Konto folgt später — bis dahin
         reicht die E-Mail-Adresse.
       </p>
-    </main>
+    </PublicShell>
   );
 }

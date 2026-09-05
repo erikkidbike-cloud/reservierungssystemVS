@@ -16,6 +16,7 @@ import { buildNutzungsvereinbarungHtml } from '@vs/documents';
 import { bookingToNvData } from '@/lib/nv-data';
 import { siteOriginFromHeaders, absoluteUrl } from '@/lib/site-url';
 import SigningForm from './SigningForm';
+import { PublicShell } from '../../PublicShell';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,13 +40,13 @@ export default async function SignPage({
 
   if (error || !booking) {
     return (
-      <main className="wrap" style={{ maxWidth: 640 }}>
+      <PublicShell width={640}>
         <h1>Nicht gefunden</h1>
         <p className="muted">
           Dieser Link ist ungültig oder abgelaufen. Bitte wenden Sie sich an{' '}
           <a href="mailto:events@kidbike.de">events@kidbike.de</a>.
         </p>
-      </main>
+      </PublicShell>
     );
   }
 
@@ -63,7 +64,7 @@ export default async function SignPage({
 
   if (b.status === 'signed' || b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed') {
     return (
-      <main className="wrap" style={{ maxWidth: 640 }}>
+      <PublicShell width={640} lang={lang}>
         <h1>{lang === 'en' ? 'Already signed' : 'Bereits unterschrieben'}</h1>
         <p>
           {lang === 'en'
@@ -81,20 +82,20 @@ export default async function SignPage({
             {doc.signer_name ? ` · ${doc.signer_name}` : ''}
           </p>
         )}
-      </main>
+      </PublicShell>
     );
   }
 
   if (b.status !== 'agreement_sent') {
     return (
-      <main className="wrap" style={{ maxWidth: 640 }}>
+      <PublicShell width={640} lang={lang}>
         <h1>{lang === 'en' ? 'Not ready for signing' : 'Noch nicht bereit zur Unterschrift'}</h1>
         <p className="muted">
           {lang === 'en'
             ? 'This booking is not currently awaiting a signature.'
             : 'Diese Buchung wartet aktuell nicht auf eine Unterschrift.'}
         </p>
-      </main>
+      </PublicShell>
     );
   }
 
@@ -106,7 +107,7 @@ export default async function SignPage({
 
   if (clauseError || !clauseRows || clauseRows.length === 0) {
     return (
-      <main className="wrap" style={{ maxWidth: 640 }}>
+      <PublicShell width={640} lang={lang}>
         <h1>{lang === 'en' ? 'Agreement unavailable' : 'Vertrag nicht verfügbar'}</h1>
         <p className="muted">
           {lang === 'en'
@@ -114,7 +115,7 @@ export default async function SignPage({
             : 'Bitte kontaktieren Sie uns, damit wir Ihnen die Vereinbarung anders zukommen lassen können.'}{' '}
           <a href="mailto:events@kidbike.de">events@kidbike.de</a>
         </p>
-      </main>
+      </PublicShell>
     );
   }
 
@@ -132,7 +133,7 @@ export default async function SignPage({
   const html = buildNutzungsvereinbarungHtml(nvData, { clauses, lang });
 
   return (
-    <main className="wrap" style={{ maxWidth: 900 }}>
+    <PublicShell width={900} lang={lang}>
       <h1>{lang === 'en' ? 'Usage agreement' : 'Nutzungsvereinbarung'}</h1>
       <p className="muted">
         {lang === 'en'
@@ -147,6 +148,6 @@ export default async function SignPage({
       <SigningForm bookingId={bookingId} lang={lang} needsIdUpload={b.needs_id_upload} customerName={
         [b.customers?.first_name, b.customers?.last_name].filter(Boolean).join(' ')
       } />
-    </main>
+    </PublicShell>
   );
 }

@@ -1,8 +1,10 @@
-// Public landing page. The full drag-select calendar and booking wizard are
-// backlog tasks 2.1/2.2; this renders the locations and their current occupancy
-// from `public_availability`, proving the PII-free public read path end to end.
+// Public landing page: the three Verkehrsschulen and what is already taken.
+//
+// Reads `public_availability`, which carries no personal data at all — the
+// view exists precisely so this page can be served to anyone.
 
 import Link from 'next/link';
+import { PublicShell } from './PublicShell';
 import { adminClient } from '@/lib/supabase';
 import type { AvailabilitySlot, Location } from '@/lib/db-types';
 
@@ -39,19 +41,22 @@ export default async function Home() {
   }
 
   return (
-    <>
-      <nav className="nav">
-        <strong>KidBike Verkehrsschulen</strong>
-        <span className="spacer" />
-        <Link href="/login">Anmelden</Link>
-      </nav>
-      <main className="wrap">
-        <h1>KidBike Verkehrsschulen</h1>
-        <p className="muted">
-          Standorte und aktuelle Belegung. Das öffentliche Buchungsformular
-          (Kalender zum Anklicken) ist noch nicht gebaut — das kommt als
-          Nächstes. Für die interne Verwaltung: oben rechts anmelden.
-        </p>
+    <PublicShell>
+      <div className="pagehead">
+        <div className="pagehead__text">
+          <h1>Verkehrsschulen Friedrichshain-Kreuzberg</h1>
+          <p className="pagehead__sub">
+            Fahrräder, Gokarts und Roller kostenlos nutzen, Verkehrssicherheits&shy;training
+            und Übungen für den Fahrradführerschein. Für eine eigene Feier oder
+            Veranstaltung können Sie einen Termin reservieren.
+          </p>
+        </div>
+        <div className="pagehead__actions">
+          <Link href="/book" className="btnlink">
+            Termin anfragen
+          </Link>
+        </div>
+      </div>
 
         {loadError && (
           <div className="notice">
@@ -114,7 +119,6 @@ export default async function Home() {
             </table>
           </div>
         )}
-      </main>
-    </>
+    </PublicShell>
   );
 }

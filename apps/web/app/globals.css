@@ -4,24 +4,41 @@
    :root block, not hunting through components. */
 
 :root {
-  /* Brand — KidBike green. */
-  --accent: #0b7a3b;
-  --accent-strong: #095f2e;
-  --accent-soft: #e8f4ec;
+  /* Brand — taken from kidbike.de, so the console and the public site read as
+     one product. The blue is the wordmark's own colour and is also what the
+     Nutzungsvereinbarung prints in (packages/documents/src/nv-template.ts's
+     BRAND) — one value, three places.
+
+     Validated as a chart colour, not chosen by eye: it passes the lightness
+     band, chroma floor and 3:1 contrast against the chart surface in both
+     modes (see the dark block below for that mode's own step). */
+  --accent: #1b6ca8;
+  --accent-strong: #145887;
+  --accent-soft: #e9f2f9;
+
+  /* The apricot of the site's own navigation and footer. Used for exactly
+     those two things here as well, so the chrome is recognisably KidBike
+     without tinting the data underneath it. */
+  --brand-sand: #f5c78d;
+  --brand-sand-strong: #eab469;
+  --brand-sand-ink: #1f3a4d;
+
+  /* The Verkehrsschulen wordmark green — reserved for "this went well". */
+  --ok: #2f9e6b;
+  --ok-soft: #e6f5ee;
 
   /* Neutrals */
-  --bg: #f7f8f7;
+  --bg: #f7f8f9;
   --surface: #ffffff;
   --fg: #16181a;
   --muted: #5f666b;
-  --line: #e2e5e3;
-  --line-strong: #cbd0cd;
+  --line: #e3e6e9;
+  --line-strong: #c9ced3;
 
   /* Status */
   --warn: #b45309;
   --warn-soft: #fdf5e9;
   --danger: #b3261e;
-  --ok: #0b7a3b;
 
   /* Spacing scale — keeps rhythm consistent across pages. */
   --s1: 4px;
@@ -39,15 +56,28 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent: #46c07d;
-    --accent-strong: #6ad198;
-    --accent-soft: #14261c;
-    --bg: #101211;
-    --surface: #181b1a;
-    --fg: #e8eae9;
-    --muted: #9aa2a0;
-    --line: #2a2e2c;
-    --line-strong: #3b413e;
+    /* Stepped for the dark surface rather than flipped: the light blue would
+       fail the lightness band here, and a lighter one fails it the other way.
+       #3f93cf is the step that passes all six checks against #181b1c. */
+    --accent: #3f93cf;
+    --accent-strong: #63a9dc;
+    --accent-soft: #13232e;
+
+    /* Apricot at full strength glows on a dark ground, so the nav keeps the
+       hue only as an edge; the bar itself becomes a surface. */
+    --brand-sand: #2b2117;
+    --brand-sand-strong: #6b4f2c;
+    --brand-sand-ink: #e8eaec;
+
+    --ok: #4fb98a;
+    --ok-soft: #12251c;
+
+    --bg: #101213;
+    --surface: #181b1c;
+    --fg: #e8eaec;
+    --muted: #9aa2a6;
+    --line: #2a2e30;
+    --line-strong: #3b4143;
     --warn: #e0a45c;
     --warn-soft: #241d12;
     --danger: #f2837b;
@@ -67,7 +97,11 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Mulish, loaded and self-hosted by next/font in app/layout.tsx — the
+     rounded humanist sans kidbike.de is set in. The system stack behind it is
+     a real fallback, not decoration: if the variable is ever missing the page
+     still sets sensibly. */
+  font: 15px/1.55 var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 a {
@@ -122,38 +156,180 @@ p {
 }
 
 /* ------------------------------------------------------------------- nav */
+/* Two rows, mirroring kidbike.de: a white brand bar, then the apricot
+   navigation strip with a white pill on the current page. Fourteen flat links
+   in one row was the previous arrangement — unreadable on a laptop and
+   genuinely unusable on a phone, which is why related screens are now grouped
+   behind four menus and everything collapses to one button below 900px. */
 
-.nav {
+.topbar {
   display: flex;
-  gap: var(--s4);
   align-items: center;
-  flex-wrap: wrap;
+  gap: var(--s4);
   padding: var(--s3) var(--s5);
   background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
 
-.nav a {
-  text-decoration: none;
-  font-weight: 500;
-  color: var(--fg);
-  padding: var(--s1) 0;
-  border-bottom: 2px solid transparent;
-}
-
-.nav a:hover {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-
-.nav .brand {
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  margin-right: var(--s2);
-}
-
-.nav .spacer {
+.topbar__spacer {
   margin-left: auto;
+}
+
+.topbar__who {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.topbar__email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 22ch;
+}
+
+.navbar {
+  background: var(--brand-sand);
+  border-bottom: 1px solid var(--brand-sand-strong);
+}
+
+.navbar__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s2) var(--s5);
+  flex-wrap: wrap;
+}
+
+/* Every top-level entry — plain link or menu trigger — looks the same until
+   it is the current one. */
+.navlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px var(--s3);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-sand-ink);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.navlink:hover {
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--brand-sand-ink);
+}
+
+.navlink[aria-current="page"],
+.navlink--active {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.navlink__caret {
+  font-size: 10px;
+  opacity: 0.7;
+  transition: transform 0.12s ease;
+}
+
+.navlink[aria-expanded="true"] .navlink__caret {
+  transform: rotate(180deg);
+}
+
+.navmenu {
+  position: relative;
+}
+
+.navmenu__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 220px;
+  padding: var(--s2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgba(16, 24, 32, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navmenu__item {
+  display: block;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.navmenu__item:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.navmenu__item[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* The hamburger only exists below the breakpoint. */
+.navtoggle {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .navtoggle {
+    display: inline-flex;
+  }
+
+  /* On a phone the menus stop being dropdowns and become sections of one
+     scrollable panel — a floating panel inside a floating panel is where this
+     pattern usually falls apart. */
+  .navbar__inner {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s1);
+    padding: var(--s3) var(--s4) var(--s4);
+  }
+
+  .navbar__inner--open {
+    display: flex;
+  }
+
+  .navlink {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .navmenu__panel {
+    position: static;
+    min-width: 0;
+    box-shadow: none;
+    border: none;
+    background: transparent;
+    padding: 0 0 var(--s2) var(--s4);
+  }
+
+  /* Dropped rather than truncated: "e.fikkert@kid…" tells nobody anything,
+     and the space is better spent on the role badge and the sign-out link. */
+  .topbar__email {
+    display: none;
+  }
 }
 
 /* --------------------------------------------------------------- surfaces */
@@ -239,10 +415,12 @@ tbody tr:hover td {
   white-space: nowrap;
 }
 
+/* Green, not the brand blue: "this is settled" should not look like "this is
+   a link". The hue is the Verkehrsschulen wordmark's own green. */
 .badge--ok {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--ok);
+  color: var(--ok);
+  background: var(--ok-soft);
 }
 
 .badge--warn {
@@ -267,7 +445,7 @@ tbody tr:hover td {
 }
 
 .notice--ok {
-  border-left-color: var(--accent);
+  border-left-color: var(--ok);
 }
 
 /* Stronger than the default notice: an operational fault the reader has to
@@ -323,13 +501,15 @@ a:focus-visible {
 button {
   font: inherit;
   font-size: 14px;
-  font-weight: 500;
-  padding: var(--s2) var(--s4);
+  font-weight: 600;
+  /* Fully rounded, like every call to action on kidbike.de. */
+  padding: 9px var(--s5);
   color: #fff;
   background: var(--accent);
   border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 button:hover {
@@ -353,6 +533,12 @@ button.danger {
   background: transparent;
   border-color: transparent;
   padding-left: 0;
+  font-weight: 500;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 button.danger:hover {
@@ -589,7 +775,10 @@ details.card[open] > summary {
   color: var(--warn);
 }
 .stat--ok {
-  border-left-color: var(--accent);
+  border-left-color: var(--ok);
+}
+.stat--ok .stat__value {
+  color: var(--ok);
 }
 
 .agenda {
@@ -738,4 +927,124 @@ details.card[open] > summary {
   height: 100%;
   border-radius: 3px;
   min-width: 2px;
+}
+
+/* --------------------------------------------------- public shell (site) */
+/* The frame around the customer-facing pages. Mirrors kidbike.de: white brand
+   bar on top, apricot footer at the bottom, content between. Sticky footer so
+   a short page (a signing confirmation, an error) does not leave the footer
+   floating halfway up the screen. */
+
+.publicshell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.publicshell > .wrap {
+  flex: 1;
+  width: 100%;
+}
+
+.publicshell__top {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s4) var(--s5);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.publicshell__toplink {
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.publicshell__foot {
+  background: var(--brand-sand);
+  color: var(--brand-sand-ink);
+  border-top: 1px solid var(--brand-sand-strong);
+  margin-top: var(--s7);
+}
+
+.publicshell__footinner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--s6) var(--s5);
+  display: grid;
+  gap: var(--s5);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.publicshell__foottitle {
+  margin: 0 0 var(--s2);
+  font-size: 16px;
+  color: var(--accent);
+}
+
+.publicshell__foot a {
+  color: var(--brand-sand-ink);
+  text-decoration: underline;
+}
+
+.publicshell__foot a:hover {
+  color: var(--accent-strong);
+}
+
+/* --------------------------------------------------------- page headings */
+/* One shape for the top of every screen: title, a sentence saying what the
+   screen is for, and any page-level action on the right. Before this each page
+   invented its own arrangement, so the eye had to re-find the title every time
+   it moved. */
+
+.pagehead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  margin-bottom: var(--s5);
+}
+
+.pagehead__text {
+  min-width: 0;
+}
+
+.pagehead h1 {
+  margin-bottom: var(--s1);
+}
+
+.pagehead__sub {
+  color: var(--muted);
+  margin: 0;
+  max-width: 68ch;
+}
+
+.pagehead__actions {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* A link that should read as a button (the site's calls to action are links). */
+.btnlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px var(--s5);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  border: 1px solid var(--accent);
+}
+
+.btnlink:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #fff;
 }
