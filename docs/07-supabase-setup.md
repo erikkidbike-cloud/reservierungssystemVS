@@ -66,6 +66,14 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    this exact app; if you're fixing that error on a project that's missing
    `0009`, running it now (and redeploying) is the fix.
 
+   **Shortcut when several are missing at once.**
+   `./supabase/post-deploy/bundle-migrations.sh 0012 0018 --seed > catch-up.sql`
+   concatenates a range into ONE file wrapped in `begin`/`commit`, so it is a
+   single paste and applies all-or-nothing — a failure rolls the whole thing
+   back rather than leaving a half-migrated database that no file describes.
+   That half-state is not hypothetical: 0014 once aborted partway and left the
+   waitlist table uncreated with nothing to show for it.
+
    **Check afterwards which ones actually landed.** Paste
    `supabase/post-deploy/check-schema.sql` into the SQL editor and run it: it
    prints one row per migration saying `ok` or `>> FEHLT`, plus the number to
