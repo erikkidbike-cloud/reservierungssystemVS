@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { serverClient } from '@/lib/supabase';
-import { getSessionUser, canSeeContactData, actionableLocationIds, mayActOnLocation } from '@/lib/auth';
+import { getSessionUser, canManageWaitlist, actionableLocationIds, mayActOnLocation } from '@/lib/auth';
 import type { WaitlistRow, Location } from '@/lib/db-types';
 import { updateWaitlistStatus, deleteWaitlistEntry } from './actions';
 
@@ -40,7 +40,7 @@ export default async function WaitlistAdminPage({
 }) {
   const { status: filterStatus = 'waiting' } = await searchParams;
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.auth)) {
+  if (!me?.auth || !canManageWaitlist(me.auth)) {
     return (
       <div className="notice">
         Zugriff auf die Warteliste ist nur für Administratorinnen und Standortleitungen gestattet.

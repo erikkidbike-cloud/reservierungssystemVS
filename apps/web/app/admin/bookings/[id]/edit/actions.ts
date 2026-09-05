@@ -3,12 +3,12 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { adminClient } from '@/lib/supabase';
-import { getSessionUser, canSeeContactData, actionableLocationIds, mayActOnLocation } from '@/lib/auth';
+import { getSessionUser, canWriteBookings, actionableLocationIds, mayActOnLocation } from '@/lib/auth';
 import { parseBerlinLocal } from '@/lib/booking-pricing';
 
 export async function updateBookingAndCustomer(formData: FormData): Promise<void> {
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.auth)) {
+  if (!me?.auth || !canWriteBookings(me.auth)) {
     throw new Error('Forbidden');
   }
 
@@ -111,7 +111,7 @@ export async function updateBookingAndCustomer(formData: FormData): Promise<void
     event_type: 'edit',
     actor_id: me.id,
     payload: {
-      edited_by: me.profile.email,
+      edited_by: me.profile?.email ?? me.email,
       customer_updated: !!booking.customer_id,
       fields: Object.keys(bookingUpdates),
     },

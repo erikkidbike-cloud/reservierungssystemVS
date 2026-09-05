@@ -2,22 +2,27 @@
 
 import { revalidatePath } from 'next/cache';
 import { adminClient } from '@/lib/supabase';
-import { getSessionUser, canSeeContactData } from '@/lib/auth';
+import { getSessionUser, canWriteExperiences } from '@/lib/auth';
+import { text, LIMITS } from '@/lib/input';
 import type { ExperienceRating } from '@/lib/db-types';
 
 export async function createCustomerExperience(formData: FormData): Promise<void> {
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.auth)) {
+  if (!me?.auth || !canWriteExperiences(me.auth)) {
     throw new Error('Forbidden');
   }
 
   const rating = (String(formData.get('rating') ?? 'neutral')) as ExperienceRating;
-  const matchLastName = String(formData.get('match_last_name') ?? '').trim() || null;
-  const matchFirstName = String(formData.get('match_first_name') ?? '').trim() || null;
-  const matchEmail = String(formData.get('match_email') ?? '').trim().toLowerCase() || null;
-  const matchPhone = String(formData.get('match_phone') ?? '').trim() || null;
-  const matchOrg = String(formData.get('match_organization') ?? '').trim() || null;
-  const note = String(formData.get('note') ?? '').trim() || null;
+  // Capped like the public fields (lib/input.ts). Staff-authored, so abuse is
+  // not the worry — but these are matched against incoming bookings and shown
+  // in the booking detail, and a runaway paste should not become the row that
+  // makes that screen unusable.
+  const matchLastName = text(formData.get('match_last_name'));
+  const matchFirstName = text(formData.get('match_first_name'));
+  const matchEmail = text(formData.get('match_email'), 254)?.toLowerCase() ?? null;
+  const matchPhone = text(formData.get('match_phone'), 40);
+  const matchOrg = text(formData.get('match_organization'), LIMITS.medium);
+  const note = text(formData.get('note'), LIMITS.message);
   const surchargeDiscountRaw = formData.get('surcharge_or_discount');
   const surchargeDiscount = surchargeDiscountRaw ? parseFloat(String(surchargeDiscountRaw)) : null;
 
@@ -49,7 +54,7 @@ export async function createCustomerExperience(formData: FormData): Promise<void
 
 export async function deleteCustomerExperience(formData: FormData): Promise<void> {
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.auth)) {
+  if (!me?.auth || !canWriteExperiences(me.auth)) {
     throw new Error('Forbidden');
   }
 

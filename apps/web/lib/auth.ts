@@ -132,6 +132,15 @@ export function canWriteBookings(auth: Auth | null | undefined): boolean {
   return can(auth, 'bookings.write');
 }
 
+export function canWriteCustomers(auth: Auth | null | undefined): boolean {
+  return can(auth, 'customers.write');
+}
+
+/** The internal notes about past customers — GDPR-sensitive, own permission. */
+export function canWriteExperiences(auth: Auth | null | undefined): boolean {
+  return can(auth, 'experiences.write');
+}
+
 export function canManageTariffs(auth: Auth | null | undefined): boolean {
   return can(auth, 'tariffs.manage');
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
-import { getSessionUser, canSeeContactData, actionableLocationIds, mayActOnLocation } from '@/lib/auth';
+import { getSessionUser, canAccessDocuments, actionableLocationIds, mayActOnLocation } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -16,7 +16,7 @@ export async function GET(
   }
 
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.auth)) {
+  if (!me?.auth || !canAccessDocuments(me.auth)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
