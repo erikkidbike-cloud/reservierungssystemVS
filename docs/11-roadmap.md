@@ -80,12 +80,14 @@ halves of that — the slot is taken, and nothing about it leaks.
    `docs/07-supabase-setup.md`, "Scheduled jobs".
 
 ### Worth building next
-6. **Occupancy reporting.** The dashboard chart counts bookings; what a board
-   actually asks is hours booked vs. hours available per location per month.
-   That is one SQL view plus a second chart on the same page.
-7. **Waitlist → offer flow.** Today a staff member sees the waitlist and books
-   manually. The obvious next step is "notify everyone waiting for this slot"
-   when a booking is cancelled, with a short-lived claim link.
+*(6 and 7 are done; 8 is the remaining one.)*
+6. ~~Occupancy reporting.~~ **Done** — `/admin/occupancy` (0018). Hours booked
+   against the location's own bookable window, per month, with blocked hours
+   reported beside rather than subtracted from the denominator.
+7. ~~Waitlist → offer flow.~~ **Done** — a cancelled booking now shows who is
+   waiting for an overlapping range and offers one button to mail them a
+   pre-filled link into the public form (0017). No claim token and no hold:
+   see that migration's header for why.
 8. **Per-location mail templates.** `mail_templates` is global; WA and WE may
    eventually want different wording. The table would gain a nullable
    `location_id` and the loader a fallback — small, but not needed until

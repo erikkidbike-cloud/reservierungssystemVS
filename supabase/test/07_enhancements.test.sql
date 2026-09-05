@@ -314,3 +314,85 @@ begin
   perform assert_eq((select count(*)::int from waitlist_offers where waitlist_id = w), 2,
     'a second, different slot can still be offered to the same person');
 end $$;
+
+-- ---------------------------------------------------------------- occupancy
+-- 0018: hours booked against the location's own bookable window.
+
+do $$
+declare
+  we_id uuid; cust uuid; row_ record; expected numeric; admin_id uuid;
+begin
+  select id into we_id from locations where code = 'WE';
+
+  -- occupancy_by_month() answers for the CALLER (has_permission +
+  -- has_location), so the test needs an identity. As postgres, auth.uid() is
+  -- null and the function correctly returns nothing at all.
+  insert into auth.users (email) values ('occ-admin@example.com') returning id into admin_id;
+  update profiles set role = 'admin' where id = admin_id;
+  perform set_config('request.jwt.claim.sub', admin_id::text, false);
+
+  insert into customers (first_name, last_name, email)
+  values ('Occ', 'Test', 'occ@example.com') returning id into cust;
+
+  -- 4 hours inside March 2029. A year no other test reaches: several
+  -- fixtures here are built from current_date + N and would otherwise drift
+  -- into the window as the calendar moves.
+  insert into bookings (location_id, customer_id, starts_at, ends_at, persons, status, source)
+  values (we_id, cust, timestamptz '2029-03-10 12:00+01', timestamptz '2029-03-10 16:00+01',
+          20, 'confirmed', 'internal');
+
+  -- A requested booking holds the slot but is not yet a sale — excluded.
+  insert into bookings (location_id, customer_id, starts_at, ends_at, persons, status, source)
+  values (we_id, cust, timestamptz '2029-03-11 12:00+01', timestamptz '2029-03-11 16:00+01',
+          20, 'requested', 'internal');
+
+  -- Spans the month boundary: 22:00 on 31 March to 02:00 on 1 April. Two hours
+  -- belong to March, two to April.
+  insert into bookings (location_id, customer_id, starts_at, ends_at, persons, status, source)
+  values (we_id, cust, timestamptz '2029-03-31 22:00+02', timestamptz '2029-04-01 02:00+02',
+          20, 'confirmed', 'internal');
+
+  select * into row_ from occupancy_by_month(date '2029-03-01', date '2029-03-01')
+  where location_code = 'WE';
+
+  perform assert_eq(row_.booked_hours, 6.00::numeric,
+    'confirmed hours are counted and clipped to the month; a requested hold is not a sale');
+
+  select (grid_max_end_hour - grid_min_hour) * 31 into expected from locations where id = we_id;
+  perform assert_eq(row_.available_hours, expected::numeric(10,2),
+    'available hours are the location''s own bookable window times the days in March');
+
+  perform assert_eq(row_.booked_pct, round(6.0 * 100 / expected, 1),
+    'the percentage is booked over available');
+
+  select * into row_ from occupancy_by_month(date '2029-04-01', date '2029-04-01')
+  where location_code = 'WE';
+  perform assert_eq(row_.booked_hours, 2.00::numeric,
+    'the other side of the boundary lands in April, not counted twice');
+
+  -- A block eats availability in practice but is reported separately, never
+  -- folded into the denominator.
+  insert into blocks (location_id, starts_at, ends_at, title, kind, is_public)
+  values (we_id, timestamptz '2029-04-05 12:00+02', timestamptz '2029-04-05 17:00+02',
+          'Wartung', 'other', false);
+
+  select * into row_ from occupancy_by_month(date '2029-04-01', date '2029-04-01')
+  where location_code = 'WE';
+  perform assert_eq(row_.blocked_hours, 5.00::numeric, 'blocked hours are reported');
+  select (grid_max_end_hour - grid_min_hour) * 30 into expected from locations where id = we_id;
+  perform assert_eq(row_.available_hours, expected::numeric(10,2),
+    'and are NOT subtracted from availability — a closure is not a full house');
+end $$;
+
+do $$
+declare staff_id uuid; n int;
+begin
+  insert into auth.users (email) values ('occ-staff@example.com') returning id into staff_id;
+  -- staff by default: no user_locations row, so no location is in scope.
+  perform set_config('request.jwt.claim.sub', staff_id::text, false);
+  set local role authenticated;
+  select count(*)::int into n from occupancy_by_month(date '2029-03-01', date '2029-03-01');
+  perform assert_eq(n, 0,
+    'occupancy is scoped by has_location() — an unassigned account sees no venues');
+  reset role;
+end $$;

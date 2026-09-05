@@ -58,6 +58,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </Link>
         <Link href="/admin">Übersicht</Link>
         <Link href="/admin/bookings">Buchungen</Link>
+        <Link href="/admin/occupancy">Auslastung</Link>
         {canSeeContactData(auth) && <Link href="/admin/waitlist">Warteliste</Link>}
         {canSeeContactData(auth) && <Link href="/admin/customers">Kunden</Link>}
         {canSeeTasks(auth) && <Link href="/admin/tasks">Aufgaben</Link>}
