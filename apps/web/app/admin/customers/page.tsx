@@ -3,6 +3,7 @@ import { serverClient } from '@/lib/supabase';
 import { getSessionUser, canSeeContactData } from '@/lib/auth';
 import type { CustomerExperience } from '@/lib/db-types';
 import { createCustomerExperience, deleteCustomerExperience } from './actions';
+import { VermerkForm, type PickableBooking } from './VermerkForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,59 @@ export default async function CustomersAdminPage({
   const { data: experiences, error } = await query;
   const items = (experiences ?? []) as CustomerExperience[];
 
+  // Bookings the note can be written ABOUT. Past ones first, because that is
+  // the ordinary case; a handful of upcoming ones are included too, flagged in
+  // the picker, for the deposit that bounced before the day.
+  const [{ data: pastRows }, { data: futureRows }] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select('id, starts_at, ends_at, event_type, status, locations(code), customers(first_name, last_name, email, phone, organization)')
+      .lt('starts_at', new Date().toISOString())
+      .order('starts_at', { ascending: false })
+      .limit(150),
+    supabase
+      .from('bookings')
+      .select('id, starts_at, ends_at, event_type, status, locations(code), customers(first_name, last_name, email, phone, organization)')
+      .gte('starts_at', new Date().toISOString())
+      .order('starts_at')
+      .limit(50),
+  ]);
+
+  type Row = {
+    id: string;
+    starts_at: string;
+    ends_at: string;
+    event_type: string | null;
+    status: string;
+    locations: { code: string } | null;
+    customers: {
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+      phone: string | null;
+      organization: string | null;
+    } | null;
+  };
+
+  const toPickable = (r: Row): PickableBooking => ({
+    id: r.id,
+    startsAt: r.starts_at,
+    endsAt: r.ends_at,
+    locationCode: r.locations?.code ?? '—',
+    eventType: r.event_type,
+    status: r.status,
+    firstName: r.customers?.first_name ?? null,
+    lastName: r.customers?.last_name ?? null,
+    email: r.customers?.email ?? null,
+    phone: r.customers?.phone ?? null,
+    organization: r.customers?.organization ?? null,
+  });
+
+  const pickable: PickableBooking[] = [
+    ...((pastRows ?? []) as unknown as Row[]).map(toPickable),
+    ...((futureRows ?? []) as unknown as Row[]).map(toPickable),
+  ];
+
   return (
     <>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -62,56 +116,7 @@ export default async function CustomersAdminPage({
       <div className="panel" style={{ marginTop: 16 }}>
         <h2 style={{ marginTop: 0 }}>Neuen Vermerk anlegen</h2>
         <form action={createCustomerExperience}>
-          <div className="grid-2">
-            <label>
-              Bewertung / Status *
-              <select name="rating" defaultValue="negative" required>
-                <option value="do_not_rent">⛔ SPERRE (Do-Not-Rent / Nicht vermieten)</option>
-                <option value="negative">⚠️ Negative Vorerfahrung</option>
-                <option value="neutral">ℹ️ Neutraler Vermerk</option>
-                <option value="positive">✨ Positive Erfahrung</option>
-              </select>
-            </label>
-            <label>
-              Nachname *
-              <input type="text" name="match_last_name" placeholder="z. B. Mustermann" />
-            </label>
-            <label>
-              Vorname
-              <input type="text" name="match_first_name" placeholder="z. B. Max" />
-            </label>
-            <label>
-              E-Mail
-              <input type="email" name="match_email" placeholder="kunde@beispiel.de" />
-            </label>
-            <label>
-              Telefon
-              <input type="tel" name="match_phone" placeholder="0170 1234567" />
-            </label>
-            <label>
-              Organisation / Einrichtung
-              <input type="text" name="match_organization" placeholder="z. B. Verein XYZ" />
-            </label>
-          </div>
-
-          <label>
-            Grund / Notiz (intern) *
-            <textarea
-              name="note"
-              rows={2}
-              required
-              placeholder="z. B. Kaution einbehalten wegen Ruhestörung / Schäden am Inventar..."
-            />
-          </label>
-
-          <label>
-            Individueller Zuschlag / Rabatt (€, optional)
-            <input type="number" step="0.01" name="surcharge_or_discount" placeholder="z. B. 50 oder -20" />
-          </label>
-
-          <button type="submit" style={{ marginTop: 8 }}>
-            Vermerk speichern
-          </button>
+          <VermerkForm bookings={pickable} />
         </form>
       </div>
 

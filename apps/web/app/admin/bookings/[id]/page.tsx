@@ -99,6 +99,12 @@ export default async function BookingDetailPage({
     if (cust?.email) filters.push(`match_email.eq.${cust.email.toLowerCase()}`);
     if (cust?.phone) filters.push(`match_phone.eq.${cust.phone}`);
     if (cust?.last_name) filters.push(`match_last_name.ilike.${cust.last_name}`);
+    // The other names the same group books under (0019). A regular books as a
+    // person one year and as their Verein the next; the warning has to follow
+    // the group rather than the spelling on this particular booking.
+    if (cust?.last_name) filters.push(`alt_names.cs.{"${cust.last_name}"}`);
+    if (cust?.organization) filters.push(`alt_names.cs.{"${cust.organization}"}`);
+    if (cust?.organization) filters.push(`match_organization.ilike.${cust.organization}`);
     if (filters.length > 0) {
       const { data: exp } = await supabase
         .from('customer_experiences')

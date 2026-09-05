@@ -30,9 +30,20 @@ export async function createCustomerExperience(formData: FormData): Promise<void
     throw new Error('Mindestens Nachname, E-Mail oder Telefonnummer erforderlich.');
   }
 
+  // Other names the same group books under. Each chip posts its own field.
+  const altNames = formData
+    .getAll('alt_names')
+    .map((v) => text(v, LIMITS.short))
+    .filter((v): v is string => !!v);
+
+  // The booking this was written about, when it was picked rather than typed.
+  const bookingId = text(formData.get('booking_id'), 64);
+
   const admin = adminClient();
   const { error } = await admin.from('customer_experiences').insert({
     rating,
+    alt_names: altNames,
+    booking_id: bookingId,
     match_last_name: matchLastName,
     match_first_name: matchFirstName,
     match_email: matchEmail,

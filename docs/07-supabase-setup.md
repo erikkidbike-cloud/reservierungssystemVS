@@ -47,6 +47,7 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    supabase/migrations/0016_roles_permissions.sql
    supabase/migrations/0017_waitlist_offers.sql
    supabase/migrations/0018_occupancy.sql
+   supabase/migrations/0019_experience_review.sql
    ```
 
    **`0016` is the only one that is destructive-looking, and it is safe.** It

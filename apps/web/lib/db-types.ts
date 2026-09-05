@@ -189,7 +189,14 @@ export interface AgreementClause {
   updated_at: string;
 }
 
-export type TaskType = 'open_venue' | 'close_venue' | 'return_deposit' | 'send_agreement' | 'other';
+export type TaskType =
+  | 'open_venue'
+  | 'close_venue'
+  | 'return_deposit'
+  | 'send_agreement'
+  /** Scheduled the day after an event ends — see 0019. */
+  | 'review_booking'
+  | 'other';
 export type TaskStatus = 'open' | 'done' | 'cancelled';
 
 /** Row of `tasks`, for the admin/location_manager management view. */
@@ -243,7 +250,8 @@ export interface CustomerExperience {
   match_address: string | null;
   match_phone: string | null;
   match_email: string | null;
-  alt_name: string | null;
+  alt_names: string[];
+  booking_id: string | null;
   rating: ExperienceRating;
   surcharge_or_discount: number | null;
   note: string | null;

@@ -396,3 +396,77 @@ begin
     'occupancy is scoped by has_location() — an unassigned account sees no venues');
   reset role;
 end $$;
+
+-- ------------------------------------------------- review task & alt names
+-- 0019: a finished booking asks to be assessed, and a Vermerk can carry the
+-- other names the same group books under.
+
+do $$
+declare
+  we_id uuid; cust uuid; b uuid; n int;
+begin
+  select id into we_id from locations where code = 'WE';
+  insert into customers (first_name, last_name, email)
+  values ('Review', 'Test', 'review@example.com') returning id into cust;
+
+  insert into bookings (location_id, customer_id, starts_at, ends_at, persons, status, source, caution)
+  values (we_id, cust, timestamptz '2029-06-10 10:00+02', timestamptz '2029-06-10 14:00+02',
+          20, 'confirmed', 'internal', 200)
+  returning id into b;
+
+  perform assert_eq(
+    (select count(*)::int from tasks where booking_id = b and type = 'review_booking'), 0,
+    'a confirmed booking is not yet up for assessment');
+
+  update bookings set status = 'completed' where id = b;
+
+  perform assert_eq(
+    (select count(*)::int from tasks where booking_id = b and type = 'review_booking'), 1,
+    'completing a booking schedules the assessment');
+  perform assert_eq(
+    (select due_at from tasks where booking_id = b and type = 'review_booking'),
+    timestamptz '2029-06-11 14:00+02',
+    'due the day after it ended, not the moment the doors close');
+  perform assert_eq(
+    (select count(*)::int from tasks where booking_id = b and type = 'return_deposit'), 1,
+    'and the deposit return is still scheduled alongside it');
+
+  -- completed → cancelled → completed must not produce a second one.
+  update bookings set status = 'cancelled' where id = b;
+  update bookings set status = 'completed' where id = b;
+  select count(*)::int into n from tasks where booking_id = b and type = 'review_booking';
+  perform assert_eq(n, 1, 'and never a second assessment for the same booking');
+end $$;
+
+do $$
+declare exp_id uuid; we_id uuid; cust uuid; b uuid;
+begin
+  select id into we_id from locations where code = 'WE';
+  insert into customers (first_name, last_name, email)
+  values ('Alt', 'Namen', 'alt@example.com') returning id into cust;
+  insert into bookings (location_id, customer_id, starts_at, ends_at, persons, status, source)
+  values (we_id, cust, timestamptz '2029-07-01 10:00+02', timestamptz '2029-07-01 14:00+02',
+          10, 'approved', 'internal')
+  returning id into b;
+
+  insert into customer_experiences (match_last_name, alt_names, rating, note, booking_id)
+  values ('Mustermann', array['Sportverein Nord', 'SV Nord e.V.'], 'negative',
+          'Kaution einbehalten.', b)
+  returning id into exp_id;
+
+  perform assert_eq(
+    (select array_length(alt_names, 1) from customer_experiences where id = exp_id), 2,
+    'a Vermerk carries the other names the group books under');
+
+  perform assert_eq(
+    (select booking_id from customer_experiences where id = exp_id), b,
+    'and remembers which booking it was written about');
+
+  -- The case-insensitive containment the booking page matches on.
+  perform assert_eq(
+    (select count(*)::int from customer_experiences
+      where exists (
+        select 1 from unnest(alt_names) a where lower(a) = lower('sv nord e.V.')
+      )),
+    1, 'an alternative name matches whatever way it was capitalised');
+end $$;

@@ -9,6 +9,7 @@ export const TASK_TYPE_LABEL: Record<TaskType, string> = {
   close_venue: 'Schließen',
   return_deposit: 'Kaution zurückerstatten',
   send_agreement: 'Nutzungsvereinbarung versenden',
+  review_booking: 'Beurteilen',
   other: 'Sonstiges',
 };
 

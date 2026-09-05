@@ -1515,3 +1515,47 @@ details.card[open] > summary {
   border-right: 1px solid var(--line);
   background: var(--surface);
 }
+
+/* A panel nested inside another one — visibly a step in the form rather than
+   a second card floating on the first. */
+.panel--inset {
+  background: var(--bg);
+  box-shadow: none;
+  margin-bottom: 0;
+}
+
+/* Removable tags: the other names a group books under. */
+.chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+}
+.chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 4px var(--s2) 4px var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+}
+.chips button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.chips button:hover {
+  background: var(--danger);
+  color: #fff;
+}
