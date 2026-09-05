@@ -270,6 +270,13 @@ tbody tr:hover td {
   border-left-color: var(--accent);
 }
 
+/* Stronger than the default notice: an operational fault the reader has to
+   act on, not a state they are merely being told about. */
+.notice--warn {
+  border-color: var(--warn);
+  border-left-width: 3px;
+}
+
 /* ----------------------------------------------------------------- forms */
 
 label {

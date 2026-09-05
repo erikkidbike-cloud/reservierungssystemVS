@@ -319,11 +319,17 @@ begin
   insert into customers (first_name, last_name, email)
   values ('Test', 'Platzwart', 'pw@example.com') returning id into cust;
 
+  -- A FIXED far-future date, not now()-relative. An earlier version used
+  -- now() + 30 days, which collides with the WE fixture at current_date + 30
+  -- in 01_functions.test.sql — but only when the suite runs at certain times
+  -- of day, since now() carries a clock and current_date does not. A test that
+  -- passes in the afternoon and fails in the morning is worse than no test.
+  --
   -- The trigger is `after update of status`, so the booking has to arrive in
   -- 'confirmed' rather than start there.
   insert into bookings (location_id, customer_id, starts_at, ends_at, persons, status, source)
   values (we_id, cust,
-          now() + interval '30 days', now() + interval '30 days 3 hours',
+          timestamptz '2029-05-15 10:00+02', timestamptz '2029-05-15 13:00+02',
           20, 'approved', 'internal')
   returning id into booking;
   update bookings set status = 'confirmed' where id = booking;

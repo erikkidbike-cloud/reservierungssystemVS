@@ -82,7 +82,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </form>
       </nav>
       <main className="wrap">
-        {!canSeeContactData(auth) && (
+        {/* A schema older than the deployed build is an operational fault, not
+            a permission decision — so it says exactly that, and says what to do
+            about it. Anything less specific sends someone hunting through the
+            roles screen for a problem that is not there. */}
+        {user.schemaOutdated && (
+          <div className="notice notice--warn">
+            <strong>Datenbank noch nicht aktualisiert.</strong> Diese Version der
+            Anwendung erwartet die Tabellen <code>roles</code> und{' '}
+            <code>role_permissions</code>; sie fehlen in dieser Datenbank. Bis die
+            Migration <code>0016_roles_permissions.sql</code> im Supabase-SQL-Editor
+            ausgeführt wurde, gelten übergangsweise die alten, fest eingebauten
+            Rollenrechte — <em>Rollen</em> lässt sich noch nicht bearbeiten.
+          </div>
+        )}
+        {!user.schemaOutdated && !canSeeContactData(auth) && (
           <div className="notice">
             Eingeschränkte Ansicht: Kontakt- und Finanzdaten werden für diese Rolle
             nicht geladen.

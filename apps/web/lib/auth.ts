@@ -64,6 +64,72 @@ export interface SessionUser {
   profile: Profile | null;
   /** null when the account has no profile yet (never signed off by an admin). */
   auth: Auth | null;
+  /**
+   * True when the `roles` tables could not be read at all — almost always
+   * because this build is deployed but migration 0016 has not been applied to
+   * this database yet. The console shows a banner saying so; see the note on
+   * LEGACY_ROLE_PERMISSIONS below for why the session still works.
+   */
+  schemaOutdated?: boolean;
+}
+
+/**
+ * What the five built-in roles could do BEFORE roles became rows (0016).
+ *
+ * This exists for one situation only: the code is deployed but the migration
+ * has not run yet. A deploy and a migration are never atomic, and the first
+ * version of this file treated "the roles table does not exist" exactly like
+ * "this role holds no permissions" — which locked the administrator out of the
+ * console with a message claiming it was a deliberate restriction. That is the
+ * worst possible failure mode: it looks like a decision, so nobody thinks to
+ * check the schema.
+ *
+ * The mapping is a copy of what 0016 seeds, and it is only ever consulted when
+ * the tables are missing — in which case the database is still running the old
+ * enum-based RLS policies, which enforce exactly these same rules. So the two
+ * layers stay consistent; this is not a bypass. Once 0016 is applied, this
+ * table is dead code and can be deleted.
+ */
+const LEGACY_ROLE_PERMISSIONS: Record<string, Permission[]> = {
+  admin: ['system.admin'],
+  location_manager: [
+    'bookings.read', 'bookings.write', 'bookings.approve', 'contact_data.read',
+    'waitlist.manage', 'customers.read', 'customers.write', 'experiences.read',
+    'experiences.write', 'documents.access', 'agreements.manage', 'events.manage',
+    'tasks.manage', 'tasks.own',
+  ],
+  finance: [
+    'bookings.read', 'contact_data.read', 'customers.read', 'experiences.read',
+    'payments.manage', 'waitlist.manage',
+  ],
+  staff: ['bookings.read', 'tasks.own'],
+  hausmeister: ['bookings.read', 'tasks.own', 'tasks.caretaker'],
+};
+
+const LEGACY_ROLE_LABEL: Record<string, string> = {
+  admin: 'Administrator',
+  location_manager: 'Standortleitung',
+  finance: 'Finanzen',
+  staff: 'Mitarbeiter*in',
+  hausmeister: 'Hausmeister',
+};
+
+/** Roles that saw every location under the old has_location() definition. */
+const LEGACY_ALL_LOCATIONS = new Set(['admin', 'finance']);
+
+/**
+ * Does this error mean "the table isn't there", as opposed to "you may not
+ * read it"? PostgREST reports a missing relation as 42P01 from Postgres, or as
+ * PGRST205 when its own schema cache has no such table. A permission or RLS
+ * problem reports something else entirely, and must NOT fall back — being
+ * refused is an answer, and answering it with a default permission set would
+ * turn a locked door into an open one.
+ */
+function isMissingRelation(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === '42P01' || error.code === 'PGRST205') return true;
+  const m = error.message ?? '';
+  return /does not exist|schema cache/i.test(m) && /roles|role_permissions/i.test(m);
 }
 
 /** The signed-in user, their profile and their resolved permissions. */
@@ -82,9 +148,10 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   const typedProfile = (profile as Profile) ?? null;
   let auth: Auth | null = null;
+  let schemaOutdated = false;
 
   if (typedProfile && typedProfile.is_active !== false) {
-    const [{ data: role }, { data: grants }] = await Promise.all([
+    const [roleResult, grantResult] = await Promise.all([
       supabase
         .from('roles')
         .select('key, label_de, all_locations')
@@ -93,18 +160,43 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       supabase.from('role_permissions').select('permission_key').eq('role_key', typedProfile.role),
     ]);
 
-    const r = role as { key: string; label_de: string; all_locations: boolean } | null;
-    auth = {
-      role: typedProfile.role,
-      // A role row that has gone missing would be a broken FK; fall back to the
-      // raw key rather than rendering "undefined" in the header.
-      roleLabel: r?.label_de ?? typedProfile.role,
-      allLocations: r?.all_locations ?? false,
-      permissions: new Set((grants ?? []).map((g) => (g as { permission_key: string }).permission_key)),
-    };
+    if (isMissingRelation(roleResult.error) || isMissingRelation(grantResult.error)) {
+      // Deployed ahead of the migration. Fall back to the pre-0016 rules,
+      // which is what this database is still enforcing anyway, and flag it so
+      // the console can say what is actually wrong.
+      schemaOutdated = true;
+      const legacy = LEGACY_ROLE_PERMISSIONS[typedProfile.role] ?? [];
+      auth = {
+        role: typedProfile.role,
+        roleLabel: LEGACY_ROLE_LABEL[typedProfile.role] ?? typedProfile.role,
+        allLocations: LEGACY_ALL_LOCATIONS.has(typedProfile.role),
+        permissions: new Set<string>(legacy),
+      };
+    } else {
+      if (roleResult.error) console.error('[auth] role lookup failed:', roleResult.error.message);
+      if (grantResult.error) console.error('[auth] permission lookup failed:', grantResult.error.message);
+
+      const r = roleResult.data as { key: string; label_de: string; all_locations: boolean } | null;
+      auth = {
+        role: typedProfile.role,
+        // A role row that has gone missing would be a broken FK; fall back to
+        // the raw key rather than rendering "undefined" in the header.
+        roleLabel: r?.label_de ?? typedProfile.role,
+        allLocations: r?.all_locations ?? false,
+        permissions: new Set(
+          (grantResult.data ?? []).map((g) => (g as { permission_key: string }).permission_key),
+        ),
+      };
+    }
   }
 
-  return { id: user.id, email: user.email ?? null, profile: typedProfile, auth };
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    profile: typedProfile,
+    auth,
+    schemaOutdated,
+  };
 }
 
 /**

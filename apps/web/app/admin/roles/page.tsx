@@ -43,10 +43,25 @@ export default async function RolesPage() {
     ]);
 
   if (error) {
+    // The overwhelmingly likely cause is that 0016 has not been applied to
+    // this database yet, so name that first rather than leaving the reader to
+    // decode a PostgREST message.
+    const missing = /does not exist|schema cache/i.test(error.message);
     return (
       <>
         <h1>Rollen</h1>
-        <div className="notice">Konnte Rollen nicht laden: {error.message}</div>
+        <div className="notice notice--warn">
+          {missing ? (
+            <>
+              <strong>Die Rollentabellen fehlen noch.</strong> Bitte die Migration{' '}
+              <code>supabase/migrations/0016_roles_permissions.sql</code> einmal im
+              Supabase-SQL-Editor ausführen. Danach ist diese Seite nutzbar; bis
+              dahin gelten die alten, fest eingebauten Rollenrechte.
+            </>
+          ) : (
+            <>Konnte Rollen nicht laden: {error.message}</>
+          )}
+        </div>
       </>
     );
   }

@@ -73,10 +73,24 @@ export default async function OccupancyPage({
   const { data, error } = await supabase.rpc('occupancy_by_month', { p_from: from, p_to: to });
 
   if (error) {
+    // Same treatment as /admin/roles: a database that has not had 0018 applied
+    // is by far the likeliest cause, and saying so beats a raw PostgREST
+    // message that reads like a bug in the page.
+    const missing = /does not exist|schema cache|function/i.test(error.message);
     return (
       <>
         <h1>Auslastung</h1>
-        <div className="notice">Konnte die Auslastung nicht berechnen: {error.message}</div>
+        <div className="notice notice--warn">
+          {missing ? (
+            <>
+              <strong>Die Auswertung fehlt in der Datenbank.</strong> Bitte die
+              Migration <code>supabase/migrations/0018_occupancy.sql</code> einmal im
+              Supabase-SQL-Editor ausführen.
+            </>
+          ) : (
+            <>Konnte die Auslastung nicht berechnen: {error.message}</>
+          )}
+        </div>
       </>
     );
   }
