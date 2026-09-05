@@ -66,6 +66,14 @@ SQL is identical either way, and it's the exact SQL already verified locally.
    this exact app; if you're fixing that error on a project that's missing
    `0009`, running it now (and redeploying) is the fix.
 
+   **Check afterwards which ones actually landed.** Paste
+   `supabase/post-deploy/check-schema.sql` into the SQL editor and run it: it
+   prints one row per migration saying `ok` or `>> FEHLT`, plus the number to
+   carry on from. It changes nothing, works on a database at any stage, and is
+   the fastest way to answer "did that whole list really run?" — which is worth
+   asking, because a migration that fails halfway leaves no trace of itself
+   anywhere else.
+
    The order matters — each one builds on the last (e.g. the overlap
    constraint in `0004` and `0014` needs the `bookings` table `0003` creates). Do **not**
    run `supabase/test/00_supabase_shim.sql` — that file exists only to fake the

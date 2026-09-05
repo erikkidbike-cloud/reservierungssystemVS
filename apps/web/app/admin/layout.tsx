@@ -3,6 +3,9 @@
 // links, it is not the security boundary. RLS and the role views are.
 
 import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { serverClient } from '@/lib/supabase';
+import { findSchemaGaps } from '@/lib/schema-check';
 import {
   getSessionUser,
   canManageTariffs,
@@ -21,6 +24,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
+
+  // Only when something has already told us the schema is behind — so this
+  // costs nothing on a healthy database.
+  const gaps = user?.schemaOutdated
+    ? await findSchemaGaps(serverClient(await cookies()))
+    : [];
 
   if (!user) {
     return (
@@ -88,12 +97,31 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             roles screen for a problem that is not there. */}
         {user.schemaOutdated && (
           <div className="notice notice--warn">
-            <strong>Datenbank noch nicht aktualisiert.</strong> Diese Version der
-            Anwendung erwartet die Tabellen <code>roles</code> und{' '}
-            <code>role_permissions</code>; sie fehlen in dieser Datenbank. Bis die
-            Migration <code>0016_roles_permissions.sql</code> im Supabase-SQL-Editor
-            ausgeführt wurde, gelten übergangsweise die alten, fest eingebauten
-            Rollenrechte — <em>Rollen</em> lässt sich noch nicht bearbeiten.
+            <p style={{ marginTop: 0 }}>
+              <strong>Datenbank ist nicht auf dem Stand dieser Version.</strong>{' '}
+              {gaps.length > 1
+                ? `${gaps.length} Migrationen fehlen.`
+                : 'Es fehlt mindestens eine Migration.'}{' '}
+              Bis sie im Supabase-SQL-Editor ausgeführt sind, gelten die alten,
+              fest eingebauten Rollenrechte, und die unten genannten Bereiche
+              melden Fehler.
+            </p>
+            {gaps.length > 0 && (
+              <ul style={{ margin: '0 0 12px', paddingLeft: '1.2em' }}>
+                {gaps.map((g) => (
+                  <li key={g.migration}>
+                    <code>{g.migration}.sql</code> — {g.feature}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p style={{ marginBottom: 0 }} className="small">
+              Die Dateien liegen im Repository unter{' '}
+              <code>supabase/migrations/</code> und müssen der Reihe nach
+              ausgeführt werden. Welche genau fehlen, sagt{' '}
+              <code>supabase/post-deploy/check-schema.sql</code> — einmal in den
+              SQL-Editor einfügen und ausführen; es ändert nichts, es berichtet nur.
+            </p>
           </div>
         )}
         {!user.schemaOutdated && !canSeeContactData(auth) && (
