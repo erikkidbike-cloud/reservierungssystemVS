@@ -31,6 +31,13 @@ export const WAITLIST_LIMITS = {
   global: { name: 'waitlist:all', limit: 60, windowSeconds: 3600 },
 } as const;
 
+// Signing is more forgiving per IP: a household signing from one connection
+// may legitimately retry a few times (a slow upload, a re-drawn signature).
+export const SIGN_LIMITS = {
+  perIp: { name: 'sign:ip', limit: 20, windowSeconds: 3600 },
+  global: { name: 'sign:all', limit: 200, windowSeconds: 3600 },
+} as const;
+
 /**
  * The client's address as seen through Netlify's proxy. Spoofable in theory —
  * an attacker controls their own X-Forwarded-For — but the platform appends

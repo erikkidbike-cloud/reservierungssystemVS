@@ -10,6 +10,7 @@
 
 import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
+import { checkRateLimit, SIGN_LIMITS } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -18,19 +19,47 @@ function bad(error: string, status = 400) {
   return NextResponse.json({ ok: false, error }, { status });
 }
 
-function extensionFor(file: File): string {
-  const fromName = file.name.split('.').pop();
-  if (fromName && fromName.length <= 5) return fromName.toLowerCase();
-  if (file.type === 'application/pdf') return 'pdf';
-  if (file.type.startsWith('image/')) return file.type.split('/')[1] || 'jpg';
-  return 'bin';
-}
+/**
+ * What an ID document may be, decided HERE and not by the uploader.
+ *
+ * This matters more than it looks: whatever lands in storage is later served
+ * back to a staff member by /api/admin/bookings/[id]/document/[type]. If the
+ * uploader could choose the type, they could store an SVG or an HTML file and
+ * have it executed on the console's own origin the moment someone opened it —
+ * stored XSS, from a link we mailed to a customer. So the extension comes from
+ * this table, never from the uploaded filename (which is attacker-controlled
+ * and could also smuggle path separators into the storage key).
+ */
+const ALLOWED_ID_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+  'application/pdf': 'pdf',
+};
+
+/** An ID photo or a scan; anything larger is a mistake or an attack. */
+const MAX_ID_BYTES = 10 * 1024 * 1024;
+/** A canvas PNG of a signature is a few tens of KB. */
+const MAX_SIGNATURE_BYTES = 2 * 1024 * 1024;
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ bookingId: string }> },
 ): Promise<Response> {
   const { bookingId } = await params;
+
+  // Anonymous endpoint that writes to storage: throttled like the other two.
+  // A valid booking id is needed to get past the status guard below, but the
+  // upload happens before any human reviews it, so the cost of a flood is
+  // real even when every request is rejected later.
+  const rate = await checkRateLimit(request, SIGN_LIMITS);
+  if (!rate.allowed) {
+    console.warn(`[sign] rate limit hit: ${rate.tripped}`);
+    return bad('rate_limited', 429);
+  }
+
   const admin = adminClient();
 
   const { data: booking, error: loadError } = await admin
@@ -65,8 +94,11 @@ export async function POST(
 
   if (!signerName) return bad('missing_signer_name');
   if (!(signature instanceof File) || signature.size === 0) return bad('missing_signature');
+  if (signature.size > MAX_SIGNATURE_BYTES) return bad('signature_too_large', 413);
   if (booking.needs_id_upload && !(idDocument instanceof File)) return bad('missing_id_document');
 
+  // The signature is always stored as the PNG the canvas produced; the content
+  // type is asserted here rather than taken from the upload.
   const sigPath = `${bookingId}/signature.png`;
   const sigBuffer = Buffer.from(await signature.arrayBuffer());
   const { error: sigUploadError } = await admin.storage
@@ -79,11 +111,19 @@ export async function POST(
 
   let idPath: string | null = null;
   if (idDocument instanceof File && idDocument.size > 0) {
-    idPath = `${bookingId}/id.${extensionFor(idDocument)}`;
+    if (idDocument.size > MAX_ID_BYTES) return bad('id_document_too_large', 413);
+
+    const extension = ALLOWED_ID_TYPES[idDocument.type];
+    if (!extension) return bad('unsupported_id_document_type', 415);
+
+    // Path and stored content type both come from the whitelist above, so
+    // neither the uploaded filename nor the claimed MIME type can influence
+    // what ends up in the bucket or how it is later served.
+    idPath = `${bookingId}/id.${extension}`;
     const idBuffer = Buffer.from(await idDocument.arrayBuffer());
     const { error: idUploadError } = await admin.storage
       .from('id-uploads')
-      .upload(idPath, idBuffer, { contentType: idDocument.type || 'application/octet-stream', upsert: true });
+      .upload(idPath, idBuffer, { contentType: idDocument.type, upsert: true });
     if (idUploadError) {
       console.error('[sign] ID upload failed', idUploadError);
       return bad('upload_failed', 500);

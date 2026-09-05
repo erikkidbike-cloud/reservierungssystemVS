@@ -64,20 +64,36 @@ export async function GET(
   }
 
   const arrayBuffer = await fileBlob.arrayBuffer();
-  const contentType =
-    fileBlob.type ||
-    (filePath.endsWith('.pdf')
-      ? 'application/pdf'
-      : filePath.endsWith('.png')
-        ? 'image/png'
-        : 'image/jpeg');
+
+  // The content type is decided from the stored path's extension, NOT from
+  // what the storage layer reports back, and only known-inert types are ever
+  // served inline. The upload side already whitelists what may be stored
+  // (app/api/sign/[bookingId]/route.ts) — this is the second half of the same
+  // guarantee: even if something unexpected ever reached the bucket, it can
+  // only leave here as a download, never as active content on this origin.
+  const SAFE_INLINE: Record<string, string> = {
+    pdf: 'application/pdf',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    webp: 'image/webp',
+    heic: 'image/heic',
+    heif: 'image/heif',
+  };
+  const extension = (filePath.split('.').pop() ?? '').toLowerCase();
+  const inlineType = SAFE_INLINE[extension];
+  const filename = (filePath.split('/').pop() || 'document').replace(/[^\w.-]/g, '_');
 
   return new Response(arrayBuffer, {
     status: 200,
     headers: {
-      'Content-Type': contentType,
-      'Content-Disposition': `inline; filename="${filePath.split('/').pop() || 'document'}"`,
-      'Cache-Control': 'private, max-age=3600',
+      'Content-Type': inlineType ?? 'application/octet-stream',
+      'Content-Disposition': `${inlineType ? 'inline' : 'attachment'}; filename="${filename}"`,
+      // Never let a browser sniff its way to a different, active type.
+      'X-Content-Type-Options': 'nosniff',
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+      // An identity document must not sit in a shared or disk cache.
+      'Cache-Control': 'private, no-store',
     },
   });
 }
