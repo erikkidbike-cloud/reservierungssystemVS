@@ -77,7 +77,7 @@ export default async function EventsPage() {
     );
   }
 
-  const allowed = await actionableLocationIds();
+  const allowed = await actionableLocationIds(me);
   const allLocations = (locData ?? []) as Location[];
   const myLocations = allLocations.filter((l) => mayActOnLocation(allowed, l.id));
   const categories = (projectData ?? []) as ProjectRow[];

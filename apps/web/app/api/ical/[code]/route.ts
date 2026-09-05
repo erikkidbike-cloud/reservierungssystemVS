@@ -13,6 +13,7 @@
 // exactly what someone opening or closing the venue needs.
 
 import { adminClient } from '@/lib/supabase';
+import { timingSafeCompare } from '@/lib/secrets';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -93,7 +94,7 @@ export async function GET(
 
   // One answer for "no such location" and "wrong token", so the feed URL can't
   // be used to enumerate which location codes exist.
-  if (!location || !token || token !== location.ical_token) {
+  if (!location || !timingSafeCompare(token, location.ical_token)) {
     return new Response('Not found', { status: 404 });
   }
 

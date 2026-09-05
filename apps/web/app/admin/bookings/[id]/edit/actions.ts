@@ -24,7 +24,7 @@ export async function updateBookingAndCustomer(formData: FormData): Promise<void
 
   if (bErr || !booking) throw new Error('Booking not found');
 
-  const allowed = await actionableLocationIds();
+  const allowed = await actionableLocationIds(me);
   if (!mayActOnLocation(allowed, booking.location_id)) {
     throw new Error('Forbidden for this location');
   }

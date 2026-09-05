@@ -15,6 +15,7 @@
 
 import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
+import { isCronAuthorized } from '@/lib/cron-auth';
 import { applyPayment } from '@/lib/payments';
 import { fetchRecentTransactions, matchPayments, type PayableBooking } from '@vs/payments';
 
@@ -25,8 +26,7 @@ export const runtime = 'nodejs';
 const LOOKBACK_DAYS = 60;
 
 export async function POST(request: Request): Promise<Response> {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get('x-cron-secret') !== secret) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 

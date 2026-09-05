@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
 import { loadLocation, parseBerlinLocal } from '@/lib/booking-pricing';
 import { checkRateLimit, looksLikeBot, WAITLIST_LIMITS } from '@/lib/rate-limit';
+import { text, LIMITS } from '@/lib/input';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'rate_limited' }, { status: 429 });
   }
 
-  const code = (body.school || '').trim().toUpperCase();
+  const code = (text(body.school, 16) ?? '').toUpperCase();
   if (!code) return NextResponse.json({ ok: false, error: 'missing_school' }, { status: 400 });
 
   const start = body.from ? parseBerlinLocal(body.from) : null;
@@ -46,10 +47,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'invalid_range' }, { status: 400 });
   }
 
-  const name = (body.customer_name || '').trim();
+  // Capped for the same reason as /api/booking-request — see lib/input.ts.
+  const name = text(body.customer_name) ?? '';
   if (!name) return NextResponse.json({ ok: false, error: 'missing_name' }, { status: 400 });
 
-  const email = (body.customer_email || '').trim();
+  const email = text(body.customer_email, 254) ?? '';
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return NextResponse.json({ ok: false, error: 'invalid_email' }, { status: 400 });
   }
@@ -70,9 +72,9 @@ export async function POST(request: Request) {
       ends_at: end.toISOString(),
       customer_name: name,
       customer_email: email,
-      customer_phone: (body.customer_phone || '').trim() || null,
+      customer_phone: text(body.customer_phone, 40),
       persons: Number.isFinite(persons) && persons > 0 ? persons : null,
-      message: (body.message || '').trim() || null,
+      message: text(body.message, LIMITS.message),
       status: 'waiting',
     })
     .select('id')

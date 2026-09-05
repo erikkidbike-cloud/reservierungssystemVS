@@ -45,7 +45,7 @@ export default async function EditBookingPage({
   if (!bookingData) notFound();
   const b = bookingData as Booking;
 
-  const allowed = await actionableLocationIds();
+  const allowed = await actionableLocationIds(me);
   if (!mayActOnLocation(allowed, b.location_id)) {
     return <div className="notice">Kein Zugriff auf diesen Standort.</div>;
   }

@@ -192,8 +192,11 @@ export function canAccessDocuments(auth: Auth | null | undefined): boolean {
  * else the user's memberships — so the two cannot disagree about who may touch
  * what.
  */
-export async function actionableLocationIds(): Promise<string[] | null> {
-  const me = await getSessionUser();
+export async function actionableLocationIds(session?: SessionUser | null): Promise<string[] | null> {
+  // Every caller has already resolved the session for its own permission
+  // check; passing it in avoids a second round of profile + role + permission
+  // queries on the same request.
+  const me = session !== undefined ? session : await getSessionUser();
   if (!me?.auth) return [];
   if (me.auth.allLocations) return null;
 

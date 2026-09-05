@@ -121,7 +121,7 @@ export async function createInternalBooking(formData: FormData): Promise<void> {
   const location = await loadLocation(code);
   if (!location) backWithError(formData, 'location_not_found');
 
-  const allowed = await actionableLocationIds();
+  const allowed = await actionableLocationIds(me);
   if (!mayActOnLocation(allowed, location.id)) backWithError(formData, 'forbidden');
 
   // Price server-side with the shared engine, exactly as the public route does.

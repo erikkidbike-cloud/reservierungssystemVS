@@ -82,7 +82,7 @@ export default async function NewBookingPage({
 
   // The same scoping the action applies, so nobody is offered a location their
   // booking would then be refused for.
-  const allowed = await actionableLocationIds();
+  const allowed = await actionableLocationIds(me);
   const locations = ((locData ?? []) as Location[]).filter((l) =>
     mayActOnLocation(allowed, l.id),
   );

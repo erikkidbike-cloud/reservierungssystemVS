@@ -60,7 +60,7 @@ export default async function WaitlistAdminPage({
   }
 
   const { data, error } = await query;
-  const allowed = await actionableLocationIds();
+  const allowed = await actionableLocationIds(me);
   const rawItems = (data ?? []) as (WaitlistRow & { locations: Location | null })[];
   const items = rawItems.filter((it) => mayActOnLocation(allowed, it.location_id));
 

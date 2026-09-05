@@ -31,7 +31,7 @@ export async function GET(
     return NextResponse.json({ error: 'booking_not_found' }, { status: 404 });
   }
 
-  const allowedLocations = await actionableLocationIds();
+  const allowedLocations = await actionableLocationIds(me);
   if (!mayActOnLocation(allowedLocations, booking.location_id)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
