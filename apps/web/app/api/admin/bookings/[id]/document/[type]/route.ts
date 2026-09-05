@@ -16,7 +16,7 @@ export async function GET(
   }
 
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.profile.role)) {
+  if (!me?.profile || !canSeeContactData(me.auth)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 

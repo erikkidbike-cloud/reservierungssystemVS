@@ -37,9 +37,9 @@ interface PaymentRow {
 
 export default async function PaymentsPage() {
   const me = await getSessionUser();
-  const role = me?.profile?.role;
+  const auth = me?.auth;
 
-  if (!canManagePayments(role)) {
+  if (!canManagePayments(auth)) {
     return (
       <>
         <h1>Zahlungen</h1>

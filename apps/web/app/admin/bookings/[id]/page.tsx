@@ -43,7 +43,7 @@ export default async function BookingDetailPage({
 }) {
   const { id } = await params;
   const me = await getSessionUser();
-  const role = me?.profile?.role;
+  const auth = me?.auth;
   const supabase = serverClient(await cookies());
 
   const { data, error } = await supabase
@@ -74,8 +74,8 @@ export default async function BookingDetailPage({
   const status = b.status as BookingStatus;
   const loc = b.locations;
   const cust = b.customers;
-  const showContact = canSeeContactData(role);
-  const mayAct = canApprove(role);
+  const showContact = canSeeContactData(auth);
+  const mayAct = canApprove(auth);
   const actions = mayAct ? allowedActions(status) : [];
 
   const { data: doc } = await supabase

@@ -90,11 +90,10 @@ halves of that — the slot is taken, and nothing about it leaks.
    eventually want different wording. The table would gain a nullable
    `location_id` and the loader a fallback — small, but not needed until
    someone asks.
-9. **A second pair of eyes on deposits.** `caution.ts` still carries the
-   ⚠️ flag from open question 7: the WE deposit branching reproduces the old
-   front-end exactly, including a 500 € branch that is now unreachable. The
-   amounts are editable in the UI; the *branching* should be confirmed or
-   corrected deliberately, once, with the owner.
+9. ~~A second pair of eyes on deposits.~~ **Done** — the owner confirmed the
+   WE branching, and open question 7 is closed. The 500 € arm stays in
+   deliberately: it is unreachable only because the 22:00 closing block
+   currently stands, and that block is an editable setting.
 
 ### Deliberately not doing yet
 - Online payment (Stripe/Mollie). The abstraction exists

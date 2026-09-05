@@ -27,7 +27,7 @@ export default async function EditBookingPage({
 }) {
   const { id } = await params;
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.profile.role)) {
+  if (!me?.profile || !canSeeContactData(me.auth)) {
     return (
       <div className="notice">
         Nur Administratorinnen und Standortleitungen können Buchungen bearbeiten.

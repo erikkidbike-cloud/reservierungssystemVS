@@ -8,7 +8,7 @@ import { parseBerlinLocal } from '@/lib/booking-pricing';
 
 export async function updateBookingAndCustomer(formData: FormData): Promise<void> {
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.profile.role)) {
+  if (!me?.profile || !canSeeContactData(me.auth)) {
     throw new Error('Forbidden');
   }
 

@@ -13,7 +13,7 @@
 
 import { cookies } from 'next/headers';
 import { serverClient } from '@/lib/supabase';
-import { getSessionUser, canSeeTasks, canApprove } from '@/lib/auth';
+import { getSessionUser, canSeeTasks, canManageTasks, canApprove } from '@/lib/auth';
 import type { CaretakerTaskRow, TaskRow } from '@/lib/db-types';
 import { TASK_TYPE_LABEL, TASK_STATUS_LABEL, taskStatusBadgeClass, fmtDue } from '@/lib/task-labels';
 import { markTaskDone, reopenTask, reassignTask } from './actions';
@@ -33,9 +33,9 @@ export default async function TasksPage({
 }) {
   const { filter = 'open' } = await searchParams;
   const me = await getSessionUser();
-  const role = me?.profile?.role;
+  const auth = me?.auth;
 
-  if (!canSeeTasks(role)) {
+  if (!canSeeTasks(auth)) {
     return (
       <>
         <h1>Aufgaben</h1>
@@ -46,7 +46,10 @@ export default async function TasksPage({
 
   const supabase = serverClient(await cookies());
 
-  if (role === 'hausmeister') {
+  // The split is not "is this a caretaker?" but "may this person see other
+  // people's tasks?" — a role invented at /admin/roles with tasks.own but not
+  // tasks.manage lands on the personal list, whatever it is called.
+  if (!canManageTasks(auth)) {
     const { data, error } = await supabase
       .from('caretaker_tasks')
       .select('*')
@@ -177,7 +180,7 @@ export default async function TasksPage({
                 <th>Fällig</th>
                 <th>Status</th>
                 <th>Zugewiesen</th>
-                {canApprove(role) && <th />}
+                {canApprove(auth) && <th />}
               </tr>
             </thead>
             <tbody>
@@ -212,7 +215,7 @@ export default async function TasksPage({
                         </button>
                       </form>
                     </td>
-                    {canApprove(role) && (
+                    {canApprove(auth) && (
                       <td>
                         <form action={t.status === 'done' ? reopenTask : markTaskDone}>
                           <input type="hidden" name="taskId" value={t.id} />

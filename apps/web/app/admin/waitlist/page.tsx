@@ -40,7 +40,7 @@ export default async function WaitlistAdminPage({
 }) {
   const { status: filterStatus = 'waiting' } = await searchParams;
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.profile.role)) {
+  if (!me?.profile || !canSeeContactData(me.auth)) {
     return (
       <div className="notice">
         Zugriff auf die Warteliste ist nur für Administratorinnen und Standortleitungen gestattet.

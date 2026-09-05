@@ -88,7 +88,7 @@ function readExtraQuantities(formData: FormData): Record<string, number> {
 
 export async function createInternalBooking(formData: FormData): Promise<void> {
   const me = await getSessionUser();
-  if (!canApprove(me?.profile?.role)) backWithError(formData, 'forbidden');
+  if (!canApprove(me?.auth)) backWithError(formData, 'forbidden');
 
   const code = String(formData.get('school') ?? '')
     .trim()

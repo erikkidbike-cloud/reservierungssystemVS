@@ -668,3 +668,49 @@ details.card[open] > summary {
     font-size: 24px;
   }
 }
+
+/* --- Permission matrix (/admin/roles) ------------------------------------
+   A role is edited as a grid of checkboxes grouped by area. Two columns on a
+   wide screen, one on a narrow one; the groups are the visual unit, so they
+   are what wraps, never an individual checkbox away from its heading. */
+.perm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--s3);
+  margin-top: var(--s2);
+}
+.perm-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: var(--s2) var(--s3) var(--s3);
+  margin: 0;
+  min-width: 0;
+}
+.perm-group legend {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 0 var(--s1);
+}
+.perm {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  font-weight: 400;
+  color: var(--fg);
+  margin: 0 0 var(--s2);
+  cursor: pointer;
+}
+.perm input[type='checkbox'] {
+  width: auto;
+  display: inline;
+  margin: 3px 0 0;
+  flex: none;
+}
+.perm__hint {
+  display: block;
+  margin-top: 2px;
+  line-height: 1.35;
+}

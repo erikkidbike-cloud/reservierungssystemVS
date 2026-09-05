@@ -7,7 +7,7 @@ import type { ExperienceRating } from '@/lib/db-types';
 
 export async function createCustomerExperience(formData: FormData): Promise<void> {
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.profile.role)) {
+  if (!me?.profile || !canSeeContactData(me.auth)) {
     throw new Error('Forbidden');
   }
 
@@ -49,7 +49,7 @@ export async function createCustomerExperience(formData: FormData): Promise<void
 
 export async function deleteCustomerExperience(formData: FormData): Promise<void> {
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.profile.role)) {
+  if (!me?.profile || !canSeeContactData(me.auth)) {
     throw new Error('Forbidden');
   }
 

@@ -119,9 +119,9 @@ function MonthlyChart({ data }: { data: Array<{ label: string; count: number }> 
 
 export default async function AdminHome() {
   const user = await getSessionUser();
-  const role = user?.profile?.role;
-  const relation = bookingsRelationFor(role);
-  const showMoney = canSeeContactData(role);
+  const auth = user?.auth;
+  const relation = bookingsRelationFor(auth);
+  const showMoney = canSeeContactData(auth);
   const supabase = serverClient(await cookies());
 
   const now = new Date();
@@ -150,7 +150,7 @@ export default async function AdminHome() {
       .lte('starts_at', weekAhead.toISOString())
       .order('starts_at')
       .limit(25),
-    canSeeTasks(role)
+    canSeeTasks(auth)
       ? supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'open')
       : Promise.resolve({ count: 0 }),
     showMoney
@@ -213,10 +213,10 @@ export default async function AdminHome() {
         <StatTile
           label="Wartet auf Zahlung"
           value={awaitingPayment ?? 0}
-          href={canManagePayments(role) ? '/admin/payments' : '/admin/bookings'}
+          href={canManagePayments(auth) ? '/admin/payments' : '/admin/bookings'}
           hint="unterschrieben, noch nicht bezahlt"
         />
-        {canSeeTasks(role) && (
+        {canSeeTasks(auth) && (
           <StatTile label="Offene Aufgaben" value={openTasks ?? 0} href="/admin/tasks" hint="Öffnen, Schließen, Kaution" />
         )}
         {showMoney && (

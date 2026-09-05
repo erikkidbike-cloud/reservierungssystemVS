@@ -1,19 +1,72 @@
-// Session + role helpers for server components.
+// Session + permission helpers for server components.
 //
-// The role is read from `profiles`, which is created automatically on first
-// Entra ID login by the handle_new_user() trigger (default role: staff).
+// The profile is created automatically on first Entra ID login by the
+// handle_new_user() trigger (default role: staff).
+//
+// Since 0016 a role is a row in `roles`, not one of five enum values, and what
+// a role may do is a set of rows in `role_permissions` that an administrator
+// edits at /admin/roles. So nothing in this file may ask "is this person an
+// admin?" — it asks "does this person hold this permission?", exactly like the
+// RLS policies do. A helper that hard-codes a role name would silently ignore
+// every role the owner invents afterwards, which is the whole point of the
+// feature.
+//
+// These helpers hide navigation and refuse actions early with a readable
+// message. They are NOT the security boundary — RLS is. Both consult the same
+// role_permissions rows, so they cannot drift apart.
 
 import { cookies } from 'next/headers';
 import { serverClient } from './supabase';
-import type { AppRole, Profile } from './db-types';
+import type { Profile } from './db-types';
+
+/**
+ * Every permission the application checks for. Mirrors the `permissions` table
+ * seeded in 0016; the union type is what turns a typo into a build error
+ * rather than a silently-false check.
+ */
+export type Permission =
+  | 'system.admin'
+  | 'roles.manage'
+  | 'users.manage'
+  | 'locations.manage'
+  | 'bookings.read'
+  | 'bookings.write'
+  | 'bookings.approve'
+  | 'contact_data.read'
+  | 'waitlist.manage'
+  | 'customers.read'
+  | 'customers.write'
+  | 'experiences.read'
+  | 'experiences.write'
+  | 'documents.access'
+  | 'agreements.manage'
+  | 'mail_templates.manage'
+  | 'payments.manage'
+  | 'tariffs.manage'
+  | 'events.manage'
+  | 'categories.manage'
+  | 'tasks.manage'
+  | 'tasks.own'
+  | 'tasks.caretaker';
+
+/** What the signed-in user may do, resolved once per request. */
+export interface Auth {
+  role: string;
+  roleLabel: string;
+  /** From `roles.all_locations` — the role sees every location. */
+  allLocations: boolean;
+  permissions: ReadonlySet<string>;
+}
 
 export interface SessionUser {
   id: string;
   email: string | null;
   profile: Profile | null;
+  /** null when the account has no profile yet (never signed off by an admin). */
+  auth: Auth | null;
 }
 
-/** The signed-in user and their profile, or null when not signed in. */
+/** The signed-in user, their profile and their resolved permissions. */
 export async function getSessionUser(): Promise<SessionUser | null> {
   const supabase = serverClient(await cookies());
   const {
@@ -27,87 +80,106 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     .eq('id', user.id)
     .maybeSingle();
 
-  return { id: user.id, email: user.email ?? null, profile: (profile as Profile) ?? null };
-}
+  const typedProfile = (profile as Profile) ?? null;
+  let auth: Auth | null = null;
 
-/** Roles allowed to open the internal console at all. */
-export const CONSOLE_ROLES: AppRole[] = [
-  'admin',
-  'location_manager',
-  'staff',
-  'finance',
-  'hausmeister',
-];
+  if (typedProfile && typedProfile.is_active !== false) {
+    const [{ data: role }, { data: grants }] = await Promise.all([
+      supabase
+        .from('roles')
+        .select('key, label_de, all_locations')
+        .eq('key', typedProfile.role)
+        .maybeSingle(),
+      supabase.from('role_permissions').select('permission_key').eq('role_key', typedProfile.role),
+    ]);
 
-export function canSeeContactData(role: AppRole | undefined): boolean {
-  return role === 'admin' || role === 'location_manager' || role === 'finance';
-}
+    const r = role as { key: string; label_de: string; all_locations: boolean } | null;
+    auth = {
+      role: typedProfile.role,
+      // A role row that has gone missing would be a broken FK; fall back to the
+      // raw key rather than rendering "undefined" in the header.
+      roleLabel: r?.label_de ?? typedProfile.role,
+      allLocations: r?.all_locations ?? false,
+      permissions: new Set((grants ?? []).map((g) => (g as { permission_key: string }).permission_key)),
+    };
+  }
 
-export function canApprove(role: AppRole | undefined): boolean {
-  return role === 'admin' || role === 'location_manager';
-}
-
-export function canManageTariffs(role: AppRole | undefined): boolean {
-  return role === 'admin';
-}
-
-/** Assigning roles and locations is admin-only — it is how access itself is granted. */
-export function canManageUsers(role: AppRole | undefined): boolean {
-  return role === 'admin';
-}
-
-/** All assignable roles, for the user-admin dropdown. */
-export const ALL_ROLES: AppRole[] = [
-  'admin',
-  'location_manager',
-  'staff',
-  'finance',
-  'hausmeister',
-];
-
-/** German labels for the roles, used wherever a role is shown to staff. */
-export const ROLE_LABEL: Record<AppRole, string> = {
-  admin: 'Administrator',
-  location_manager: 'Standortleitung',
-  staff: 'Mitarbeiter*in',
-  finance: 'Finanzen',
-  hausmeister: 'Hausmeister',
-};
-
-/** Tasks (caretaker jobs, deposit returns) — the caretaker's own, or the manager view. */
-export function canSeeTasks(role: AppRole | undefined): boolean {
-  return role === 'hausmeister' || canApprove(role);
-}
-
-/** Payments — matches the `payments_access` RLS policy (admin + finance only). */
-export function canManagePayments(role: AppRole | undefined): boolean {
-  return role === 'admin' || role === 'finance';
-}
-
-/** Special events (blocks) — matches `blocks_write` RLS (admin everywhere, location_manager their own). */
-export function canManageEvents(role: AppRole | undefined): boolean {
-  return canApprove(role);
-}
-
-/** Event categories (projects) — matches `projects_write` RLS (admin only; shared across locations). */
-export function canManageCategories(role: AppRole | undefined): boolean {
-  return role === 'admin';
-}
-
-/** Mail wording — matches `mail_templates_write` RLS (admin only; shared across locations). */
-export function canManageMailTemplates(role: AppRole | undefined): boolean {
-  return role === 'admin';
+  return { id: user.id, email: user.email ?? null, profile: typedProfile, auth };
 }
 
 /**
- * Editing the Nutzungsvereinbarung text is scoped like bookings (admin
- * everywhere, location_manager for their own location) rather than restricted
- * to admin like tariffs — contract wording is operational, not financial, and
- * the RLS policy on agreement_clauses matches this exactly. See
- * docs/03-roles-and-rls.md.
+ * The one primitive. `system.admin` implies every other permission — the same
+ * rule role_has_permission() applies in SQL, so an administrator never has to
+ * be re-ticked when a later migration adds a permission.
  */
-export function canManageAgreements(role: AppRole | undefined): boolean {
-  return role === 'admin' || role === 'location_manager';
+export function can(auth: Auth | null | undefined, permission: Permission): boolean {
+  if (!auth) return false;
+  return auth.permissions.has('system.admin') || auth.permissions.has(permission);
+}
+
+// Named helpers, kept because they say WHY a screen is gated rather than which
+// string it checks — and because the call sites read better.
+
+export function canSeeContactData(auth: Auth | null | undefined): boolean {
+  return can(auth, 'contact_data.read');
+}
+
+export function canApprove(auth: Auth | null | undefined): boolean {
+  return can(auth, 'bookings.approve');
+}
+
+export function canWriteBookings(auth: Auth | null | undefined): boolean {
+  return can(auth, 'bookings.write');
+}
+
+export function canManageTariffs(auth: Auth | null | undefined): boolean {
+  return can(auth, 'tariffs.manage');
+}
+
+export function canManageUsers(auth: Auth | null | undefined): boolean {
+  return can(auth, 'users.manage');
+}
+
+/** Roles themselves — the owner asked for this to be administrators only. */
+export function canManageRoles(auth: Auth | null | undefined): boolean {
+  return can(auth, 'roles.manage');
+}
+
+/** Tasks: the manager view, or one's own caretaker jobs. */
+export function canSeeTasks(auth: Auth | null | undefined): boolean {
+  return can(auth, 'tasks.manage') || can(auth, 'tasks.own');
+}
+
+export function canManageTasks(auth: Auth | null | undefined): boolean {
+  return can(auth, 'tasks.manage');
+}
+
+export function canManagePayments(auth: Auth | null | undefined): boolean {
+  return can(auth, 'payments.manage');
+}
+
+export function canManageEvents(auth: Auth | null | undefined): boolean {
+  return can(auth, 'events.manage');
+}
+
+export function canManageCategories(auth: Auth | null | undefined): boolean {
+  return can(auth, 'categories.manage');
+}
+
+export function canManageMailTemplates(auth: Auth | null | undefined): boolean {
+  return can(auth, 'mail_templates.manage');
+}
+
+export function canManageWaitlist(auth: Auth | null | undefined): boolean {
+  return can(auth, 'waitlist.manage');
+}
+
+export function canManageAgreements(auth: Auth | null | undefined): boolean {
+  return can(auth, 'agreements.manage');
+}
+
+export function canAccessDocuments(auth: Auth | null | undefined): boolean {
+  return can(auth, 'documents.access');
 }
 
 /**
@@ -115,31 +187,21 @@ export function canManageAgreements(role: AppRole | undefined): boolean {
  *
  * Needed wherever a write bypasses RLS. Creating a booking does: it goes
  * through create_booking_request(), which only service_role may execute, so the
- * `bookings_manager_write` policy never gets a chance to run and this check
- * takes its place. It deliberately mirrors has_location() in 0005_rls.sql —
- * admin and finance see everything, everyone else only their memberships — so
- * the two cannot disagree about who may touch what.
+ * `bookings_write` policy never gets a chance to run and this check takes its
+ * place. It mirrors has_location() in 0016 — the role's `all_locations` flag,
+ * else the user's memberships — so the two cannot disagree about who may touch
+ * what.
  */
 export async function actionableLocationIds(): Promise<string[] | null> {
+  const me = await getSessionUser();
+  if (!me?.auth) return [];
+  if (me.auth.allLocations) return null;
+
   const supabase = serverClient(await cookies());
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const role = (profile as Pick<Profile, 'role'> | null)?.role;
-  if (role === 'admin' || role === 'finance') return null;
-
   const { data } = await supabase
     .from('user_locations')
     .select('location_id')
-    .eq('user_id', user.id);
+    .eq('user_id', me.id);
 
   return (data ?? []).map((r) => (r as { location_id: string }).location_id);
 }
@@ -150,12 +212,12 @@ export function mayActOnLocation(allowed: string[] | null, locationId: string): 
 }
 
 /**
- * Which relation to read bookings from for this role.
+ * Which relation to read bookings from.
  *
- * Staff and caretakers have no SELECT policy on `bookings` at all — they read
- * the column-restricted view instead, so the personal and financial columns
- * never reach the client. See docs/03-roles-and-rls.md.
+ * Without contact_data.read there is no SELECT policy on `bookings` at all —
+ * such a role reads the column-restricted view instead, so the personal and
+ * financial columns never reach the client. See docs/03-roles-and-rls.md.
  */
-export function bookingsRelationFor(role: AppRole | undefined): 'bookings' | 'bookings_staff' {
-  return canSeeContactData(role) ? 'bookings' : 'bookings_staff';
+export function bookingsRelationFor(auth: Auth | null | undefined): 'bookings' | 'bookings_staff' {
+  return canSeeContactData(auth) ? 'bookings' : 'bookings_staff';
 }

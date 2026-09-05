@@ -238,7 +238,7 @@ begin
   insert into auth.users (id, email) values (uid, 'neu@kidbike.de');
   perform assert_eq((select count(*)::int from profiles where id = uid), 1,
                     'profile auto-created on new auth user');
-  perform assert_eq((select role from profiles where id = uid), 'staff'::app_role,
+  perform assert_eq((select role from profiles where id = uid), 'staff'::text,
                     'new profile defaults to staff role');
 end $$;
 

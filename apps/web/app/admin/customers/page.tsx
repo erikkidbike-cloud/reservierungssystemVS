@@ -26,7 +26,7 @@ export default async function CustomersAdminPage({
 }) {
   const { q } = await searchParams;
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.profile.role)) {
+  if (!me?.profile || !canSeeContactData(me.auth)) {
     return (
       <div className="notice">
         Zugriff auf Kundenbewertungen und Sperrvermerke ist nur für Administratorinnen und Standortleitungen gestattet.

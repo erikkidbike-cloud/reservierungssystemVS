@@ -1,14 +1,16 @@
 // Kaution (deposit). Ports PRICING.WE.cautionFn (index.html:1030-1057) and
 // PRICING.WA.cautionFn (index.html:1091-1095). See docs/01-business-rules.md §3.5.
 //
-// ⚠️ The WE BRANCHING is flagged "Verify" by the owner (open question 7),
-// including the now-unreachable 500 € "runs past 22:00" branch. This
-// reproduces the live code's decision structure exactly; do not change WHEN
-// each amount applies without the owner's confirmation. The amounts
-// THEMSELVES (personsThreshold/amountInWindow/amountStandard/amountHigh) are
-// now config parameters rather than literals — see TariffConfig's caution
-// field — specifically so they can be tuned from the admin tariff editor
-// without touching this file at all.
+// The WE branching was confirmed correct by the owner (open question 7,
+// closed): ≤50 persons entirely inside 09:00–17:30 Mon–Sat means no deposit,
+// everything else 200 €. The 500 € branch is kept because the rule shape is
+// what was confirmed, not the fact that one arm of it is currently
+// unreachable — the closing-time block is a separate setting that could move.
+//
+// The amounts themselves (personsThreshold / amountInWindow / amountStandard /
+// amountHigh) are config parameters rather than literals — see TariffConfig's
+// caution field — so they can be tuned from the admin tariff editor without
+// touching this file. WHEN each amount applies is the part that lives here.
 
 import type { CautionRule } from './types.ts';
 import { minutesOfDay, crossesMidnight, touchesSunday } from './time.ts';

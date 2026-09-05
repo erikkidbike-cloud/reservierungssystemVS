@@ -6,63 +6,154 @@ access that Excel cannot provide.** Postgres RLS restricts *rows*; per-role
 view appropriate to the user's role, so it never receives data the role may not
 see — hiding is enforced by the database, not the UI.
 
-## Roles
+## Roles are rows, permissions are the currency
 
-`app_role` enum: `admin`, `location_manager`, `staff`, `finance`, `hausmeister`.
-Public (unauthenticated) visitors are the `anon` Postgres role.
+Until `0016_roles_permissions.sql` a role was one of five values of the
+`app_role` enum, and every policy asked *which role is this?* — `auth_role() in
+('admin','finance')` and so on. Both halves broke as soon as the owner needed
+to invent a role: an enum cannot grow from the UI, and a policy that names
+roles by hand can never know about one created afterwards.
 
-| Capability | admin | location_manager | staff | finance | hausmeister | anon |
-|---|---|---|---|---|---|---|
-| All locations | ✓ | scoped | scoped | ✓ | scoped | — |
-| See booking contact data | ✓ | ✓ | ✗ | ✓ | minimal¹ | ✗ |
-| See financial data | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ |
-| Approve / edit / cancel | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
-| Add notes / tick tasks | ✓ | ✓ | ✓ | ✗ | own tasks | ✗ |
-| Match payments / deposit | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ |
-| See `customer_experiences` | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ |
-| Manage tariffs / users | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Submit a request | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (via RPC) |
-| Read occupancy (no PII) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (via view) |
+So the question every policy asks changed:
 
-¹ Caretaker sees only date, time, open/close task, name, phone — through
-`caretaker_tasks`, never the `bookings` table directly.
+    which role does this user have?   →   what may this user do?
+
+A **role** is now a row in `roles` (a key, a German label, and an
+`all_locations` flag). A **permission** is a row in the fixed `permissions`
+catalogue — fixed because a permission only means anything if some policy or
+route checks for it, so adding one is a code change. What an administrator
+edits at `/admin/roles` is the join between them, `role_permissions`.
+
+`system.admin` is the one implication in the model: a role holding it holds
+every permission, including ones added by a later migration. Nothing else
+implies anything.
+
+### Scope: two orthogonal questions
+
+- **What** may you do → permissions.
+- **Where** may you do it → `roles.all_locations`, else the caller's
+  `user_locations` rows.
+
+Per-permission location scoping ("may approve at WE but only read at WA") was
+considered and rejected: nobody has asked for it, and it would double the size
+of every policy for a case that does not exist.
+
+### What a fresh database starts with
+
+| Permission group | admin | location_manager | staff | finance | hausmeister |
+|---|---|---|---|---|---|
+| All locations | ✓ | scoped | scoped | ✓ | scoped |
+| `bookings.read` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `contact_data.read` | ✓ | ✓ | ✗ | ✓ | ✗ |
+| `bookings.write` / `.approve` | ✓ | ✓ | ✗ | ✗ | ✗ |
+| `customers.*` | ✓ | ✓ | ✗ | read | ✗ |
+| `experiences.*` | ✓ | ✓ | ✗ | read | ✗ |
+| `documents.access` | ✓ | ✓ | ✗ | ✗ | ✗ |
+| `payments.manage` | ✓ | ✗ | ✗ | ✓ | ✗ |
+| `tariffs.manage` | ✓ | ✗ | ✗ | ✗ | ✗ |
+| `events.manage` | ✓ | ✓ | ✗ | ✗ | ✗ |
+| `tasks.manage` | ✓ | ✓ | ✗ | ✗ | ✗ |
+| `tasks.own` | ✓ | ✓ | ✓ | ✗ | ✓ |
+| `tasks.caretaker` | ✓ | ✗ | ✗ | ✗ | ✓ |
+| `users.manage` / `roles.manage` | ✓ | ✗ | ✗ | ✗ | ✗ |
+
+These five are `is_system` roles: they may be renamed and re-permissioned, but
+not deleted and not re-keyed, because `handle_new_user()` and the seed data
+refer to their keys. Every other role is fully editable and deletable.
+
+Public (unauthenticated) visitors are the `anon` Postgres role and hold no
+permissions at all; they reach data only through the public views or
+`create_booking_request()`.
+
+Without `contact_data.read` a role has no SELECT policy on `bookings` and reads
+the `bookings_staff` view instead — date, time, persons, status, nothing
+personal or financial. That two-tier arrangement is unchanged; it is only
+expressed as a permission now rather than as a list of role names.
+
+## Guard rails
+
+An editable permission system can lock everyone out of itself. Three triggers
+(0016) stop the plausible accidents, and they are triggers rather than checks
+in the application precisely because `/admin/roles` is the one screen that can
+remove its own permission:
+
+1. `system.admin` and `roles.manage` cannot be taken from the `admin` role.
+2. A system role cannot be deleted, re-keyed, or demoted to an ordinary one;
+   the `admin` role cannot lose `all_locations`.
+3. The last active administrator cannot be demoted or deactivated — the fix for
+   that would need database access, which is exactly what this console exists
+   to avoid.
+
+A role still assigned to somebody cannot be deleted either; that one is just
+the foreign key from `profiles.role`.
 
 ## Helper functions (SECURITY DEFINER)
 
-Defined in `supabase/migrations/0005_rls.sql`:
+Defined in `supabase/migrations/0016_roles_permissions.sql`:
 
-- `auth_role()` → the caller's `app_role` from `profiles` (or `null`).
-- `is_admin()` → `auth_role() = 'admin'`.
-- `has_location(loc uuid)` → true if admin/finance, or the caller has a
-  `user_locations` row for `loc`.
+- `auth_role()` → the caller's role key from `profiles` (`text`, or `null` when
+  the account is inactive).
+- `role_has_permission(role, perm)` → does that role hold it (or `system.admin`)?
+  Split out from the next one so a query can ask about a role other than the
+  caller's own — the caretaker-assignment trigger does exactly that.
+- `has_permission(perm)` → `role_has_permission(auth_role(), perm)`.
+- `is_admin()` → `has_permission('system.admin')`.
+- `has_all_locations()` → the caller's role covers every location.
+- `has_location(loc)` → `has_all_locations()`, or a `user_locations` row for `loc`.
+- `can_at(perm, loc)` → both — the pairing almost every policy uses.
 
 Kept `STABLE` and schema-qualified to avoid recursive RLS evaluation.
 
+`apps/web/lib/auth.ts` mirrors these for the UI (`can(auth, permission)` plus
+named helpers). It resolves the permission set once per request in
+`getSessionUser()`. It hides navigation and refuses actions with a readable
+message — it is **not** the security boundary. Both sides read the same
+`role_permissions` rows, so they cannot drift apart.
+
 ## Policy summary
 
-- **profiles**: a user reads/updates their own row; admin reads/writes all.
-- **locations / tariffs / projects**: read by any authenticated user; write by
-  admin only. A safe subset of `locations` is exposed to `anon` via the public
-  views (no internal columns).
-- **bookings**: admin & finance → all rows. location_manager → rows where
-  `has_location(location_id)`, full access. staff → **read only** and **only via
-  the `bookings_staff` view** (no direct table select granted). Public form
-  inserts go through `create_booking_request()` (SECURITY DEFINER, service-role
-  only), which validates and inserts with `status='requested'` — there is no
-  INSERT policy for `anon` on the table at all.
+- **roles / permissions / role_permissions**: read by any authenticated user
+  (the console has to render a role's name, and knowing a permission exists
+  grants nothing); written only with `roles.manage`. `permissions` has no write
+  policy at all — the catalogue is code.
+- **profiles**: a user reads/updates their own row; `users.manage` reads/writes all.
+- **locations / tariffs / projects**: read by any authenticated user; written
+  with `locations.manage` / `tariffs.manage` / `categories.manage`. A safe
+  subset of `locations` is exposed to `anon` via the public views.
+- **bookings**: `contact_data.read` + `has_location()` for the base table;
+  everyone else reads the `bookings_staff` view. Writes need
+  `can_at('bookings.write', location_id)`. Public form inserts go through
+  `create_booking_request()` (SECURITY DEFINER, service-role only), which
+  validates and inserts with `status='requested'` — there is no INSERT policy
+  for `anon` on the table at all.
 - **agreement_clauses**: read by any authenticated user (contract text is not
-  personal or financial data, and a preview is harmless); write by admin
-  everywhere, location_manager only where `has_location(location_id)` — the
-  same scoping as bookings. Unlike most of the schema, this table's RLS is
-  exercised by an actual role-switch test rather than only checked for shape —
-  see `supabase/test/02_agreements.test.sql`.
-- **customer_experiences**: admin, location_manager, finance only.
-- **payments / documents**: admin + finance (payments), admin + location_manager
-  (documents, scoped to location).
-- **tasks**: admin/location_manager manage tasks in their locations; assignee
-  reads & updates their own; caretaker sees only their tasks (via `caretaker_tasks`).
-- **booking_events**: insert by the app (via triggers/RPC); read by admin +
-  location_manager (their locations).
+  personal or financial data, and a preview is harmless); written with
+  `can_at('agreements.manage', location_id)`. Unlike most of the schema, this
+  table's RLS is exercised by an actual role-switch test rather than only
+  checked for shape — see `supabase/test/02_agreements.test.sql`.
+- **customers / customer_experiences**: `customers.read`/`.write` and
+  `experiences.read`/`.write`. Unscoped by location, as before — a customer
+  belongs to no single venue.
+- **payments**: `payments.manage`. **documents**: `documents.access`, scoped to
+  the booking's location.
+- **tasks**: `can_at('tasks.manage', …)` for the manager view; an assignee with
+  `tasks.own` reads and updates their own, and sees them through
+  `caretaker_tasks`.
+- **booking_events**: inserted by the app (via triggers/RPC); read with
+  `can_at('bookings.read', …)` on the booking's location.
+- **waitlist / reminder rules / mail templates**: `bookings.read` and
+  `waitlist.manage` for the waitlist (scoped); `mail_templates.manage` for both
+  kinds of wording.
+
+Caretaker assignment follows `tasks.caretaker`, not a role name: when a booking
+is confirmed, `create_lifecycle_tasks()` picks an active user at that location
+whose role holds that permission. Before 0016 it matched `role = 'hausmeister'`
+literally, which no user-defined role could ever satisfy.
+
+`supabase/test/08_roles.test.sql` covers all of this: that a role invented at
+runtime is honoured by the policies, that a user without `roles.manage` can
+neither grant themselves a permission nor invent a role, and that each guard
+rail refuses.
 
 ## Why a function for public submission
 

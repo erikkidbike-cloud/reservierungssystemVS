@@ -4,23 +4,15 @@
 
 import { cookies } from 'next/headers';
 import { serverClient } from '@/lib/supabase';
-import {
-  getSessionUser,
-  canManageUsers,
-  ALL_ROLES,
-  ROLE_LABEL,
-} from '@/lib/auth';
-import type { Location, Profile } from '@/lib/db-types';
+import { getSessionUser, canManageUsers } from '@/lib/auth';
+import type { Location, Profile, Role } from '@/lib/db-types';
 import { setUserRole, setUserActive, setUserLocations } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-/** Roles that see everything regardless of user_locations — see has_location(). */
-const UNSCOPED_ROLES = ['admin', 'finance'];
-
 export default async function UsersPage() {
   const me = await getSessionUser();
-  if (!canManageUsers(me?.profile?.role)) {
+  if (!canManageUsers(me?.auth)) {
     return (
       <>
         <h1>Benutzer</h1>
@@ -32,11 +24,15 @@ export default async function UsersPage() {
   }
 
   const supabase = serverClient(await cookies());
-  const [{ data: profiles, error: pErr }, { data: locations }, { data: memberships }] =
+  // Roles are rows now, so the dropdown and the "sees every location" note are
+  // both read from the database rather than from a constant that would go
+  // stale the moment someone adds a role at /admin/roles.
+  const [{ data: profiles, error: pErr }, { data: locations }, { data: memberships }, { data: roleRows }] =
     await Promise.all([
       supabase.from('profiles').select('*').order('created_at', { ascending: true }),
       supabase.from('locations').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('user_locations').select('user_id, location_id'),
+      supabase.from('roles').select('*').order('sort').order('label_de'),
     ]);
 
   if (pErr) {
@@ -57,6 +53,9 @@ export default async function UsersPage() {
   }
 
   const users = (profiles ?? []) as Profile[];
+  const roles = (roleRows ?? []) as Role[];
+  const roleByKey = new Map(roles.map((r) => [r.key, r]));
+  const labelFor = (key: string) => roleByKey.get(key)?.label_de ?? key;
 
   return (
     <>
@@ -68,7 +67,7 @@ export default async function UsersPage() {
 
       {users.map((u) => {
         const assigned = byUser.get(u.id) ?? new Set<string>();
-        const unscoped = UNSCOPED_ROLES.includes(u.role);
+        const unscoped = roleByKey.get(u.role)?.all_locations ?? false;
         const isMe = u.id === me?.id;
 
         return (
@@ -82,7 +81,7 @@ export default async function UsersPage() {
                 <p className="muted small" style={{ margin: 0 }}>{u.email}</p>
               </div>
               <span className={u.is_active ? 'badge badge--ok' : 'badge badge--warn'}>
-                {u.is_active ? ROLE_LABEL[u.role] : 'deaktiviert'}
+                {u.is_active ? labelFor(u.role) : 'deaktiviert'}
               </span>
             </div>
 
@@ -92,9 +91,9 @@ export default async function UsersPage() {
                 <label>
                   Rolle
                   <select name="role" defaultValue={u.role}>
-                    {ALL_ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {ROLE_LABEL[r]}
+                    {roles.map((r) => (
+                      <option key={r.key} value={r.key}>
+                        {r.label_de}
                       </option>
                     ))}
                   </select>
@@ -104,8 +103,9 @@ export default async function UsersPage() {
                 </button>
                 {isMe && (
                   <p className="muted small" style={{ marginTop: 8 }}>
-                    Vorsicht: Wenn du dir selbst die Administratorrolle entziehst,
-                    kannst du sie nur noch per SQL zurückholen.
+                    Vorsicht beim Ändern der eigenen Rolle. Die letzte aktive
+                    Administration lässt sich nicht herabstufen — das verhindert
+                    die Datenbank.
                   </p>
                 )}
               </form>
@@ -115,7 +115,7 @@ export default async function UsersPage() {
                 <label style={{ marginBottom: 8 }}>Standorte</label>
                 {unscoped ? (
                   <p className="muted small">
-                    {ROLE_LABEL[u.role]} sieht alle Standorte — eine Zuordnung ist
+                    {labelFor(u.role)} sieht alle Standorte — eine Zuordnung ist
                     hier nicht nötig.
                   </p>
                 ) : (

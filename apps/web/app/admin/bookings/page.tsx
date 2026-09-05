@@ -35,9 +35,9 @@ export default async function BookingsPage({
   const active = FILTERS[filter] ? filter : 'open';
 
   const user = await getSessionUser();
-  const role = user?.profile?.role;
-  const relation = bookingsRelationFor(role);
-  const showDetail = canSeeContactData(role);
+  const auth = user?.auth;
+  const relation = bookingsRelationFor(auth);
+  const showDetail = canSeeContactData(auth);
 
   const supabase = serverClient(await cookies());
 

@@ -51,9 +51,9 @@ export default async function NewBookingPage({
 }) {
   const params = await searchParams;
   const me = await getSessionUser();
-  const role = me?.profile?.role;
+  const auth = me?.auth;
 
-  if (!canApprove(role)) {
+  if (!canApprove(auth)) {
     return (
       <>
         <h1>Buchung erfassen</h1>

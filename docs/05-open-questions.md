@@ -47,17 +47,21 @@
     headings sit inside the previous clause's paragraph rather than being their own
     heading; and the English section numbers two different clauses "10.". The
     importer works around all of it, but the Word file is worth tidying.
+7. **WE Kaution rules — confirmed by the owner.** ≤50 persons entirely inside
+    09:00–17:30 Mon–Sat means no deposit; >50 inside the window 200 €; >50
+    outside it 500 €; everything else 200 €. The 500 € arm is unreachable while
+    the 22:00 closing block stands, and stays in the code deliberately: the
+    closing time is a setting, and the rule should not quietly change shape if
+    it is ever moved. Amounts are editable at /admin/tariffs.
+
 20. **WI has no Nutzungsvereinbarung template.** Consistent with it being
     phone-only, but confirm no agreement is needed there.
 
 ## Still to confirm (do not finalise these without the owner)
 
-7. **WE Kaution rules (⚠️ Verify).** The engine reproduces the current code
-   exactly, but the owner has not confirmed it is *correct*:
-   - ≤50 persons fully inside 09:00–17:30 Mon–Sat → no deposit;
-   - >50 inside window → 200 €; >50 outside → 500 €; everything else → 200 €.
-   - The `500 €` "runs past 22:00" branch is **unreachable** since the 22:00
-     closing block — should it be removed? Left in for now, flagged.
+*(7 — the WE Kaution branching — was confirmed by the owner and has moved to
+the answered list.)*
+
 8. **Why does WA have no time surcharge while WE/WI do?** Confirm this is
    intended (it is currently `surcharge: () => 0` for WA).
 9. **Why does WI have a full price table in code but is not online-bookable?**

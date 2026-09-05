@@ -28,7 +28,7 @@ export default async function ComposeMailPage({
   const action = actionParam as BookingAction;
 
   const me = await getSessionUser();
-  if (!canApprove(me?.profile?.role)) {
+  if (!canApprove(me?.auth)) {
     return (
       <>
         <h1>E-Mail verfassen</h1>

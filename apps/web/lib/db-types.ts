@@ -2,7 +2,35 @@
 // these can be replaced with `supabase gen types typescript`; until then this
 // keeps the app type-safe against the schema as designed.
 
-export type AppRole = 'admin' | 'location_manager' | 'staff' | 'finance' | 'hausmeister';
+/**
+ * A role key. Since 0016 roles are rows in `roles`, not enum values, so this is
+ * a plain string — the five built-in keys are listed only as documentation of
+ * what a fresh database starts with.
+ *
+ *   admin · location_manager · staff · finance · hausmeister
+ */
+export type RoleKey = string;
+
+/** A role as an administrator edits it at /admin/roles. */
+export interface Role {
+  key: string;
+  label_de: string;
+  description: string | null;
+  /** The role reaches every location without a user_locations row. */
+  all_locations: boolean;
+  /** Built in; may be renamed and re-permissioned, never deleted. */
+  is_system: boolean;
+  sort: number;
+}
+
+/** One entry of the fixed permission catalogue seeded by the migration. */
+export interface PermissionRow {
+  key: string;
+  category: string;
+  label_de: string;
+  description: string | null;
+  sort: number;
+}
 
 export type OnlineBookability = 'online' | 'phone_only' | 'offline';
 
@@ -82,7 +110,7 @@ export interface Profile {
   id: string;
   email: string | null;
   full_name: string | null;
-  role: AppRole;
+  role: RoleKey;
   is_active: boolean;
 }
 

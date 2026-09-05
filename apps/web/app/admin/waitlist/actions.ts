@@ -6,7 +6,7 @@ import { getSessionUser, canSeeContactData } from '@/lib/auth';
 
 export async function updateWaitlistStatus(formData: FormData): Promise<void> {
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.profile.role)) {
+  if (!me?.profile || !canSeeContactData(me.auth)) {
     throw new Error('Forbidden');
   }
 
@@ -32,7 +32,7 @@ export async function updateWaitlistStatus(formData: FormData): Promise<void> {
 
 export async function deleteWaitlistEntry(formData: FormData): Promise<void> {
   const me = await getSessionUser();
-  if (!me?.profile || !canSeeContactData(me.profile.role)) {
+  if (!me?.profile || !canSeeContactData(me.auth)) {
     throw new Error('Forbidden');
   }
 

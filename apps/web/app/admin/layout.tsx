@@ -13,7 +13,7 @@ import {
   canManagePayments,
   canManageEvents,
   canManageMailTemplates,
-  ROLE_LABEL,
+  canManageRoles,
 } from '@/lib/auth';
 import { signOut } from './actions';
 
@@ -36,7 +36,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     );
   }
 
-  const role = user.profile?.role;
+  const auth = user.auth;
 
   if (!user.profile || user.profile.is_active === false) {
     return (
@@ -58,20 +58,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </Link>
         <Link href="/admin">Übersicht</Link>
         <Link href="/admin/bookings">Buchungen</Link>
-        {canSeeContactData(role) && <Link href="/admin/waitlist">Warteliste</Link>}
-        {canSeeContactData(role) && <Link href="/admin/customers">Kunden</Link>}
-        {canSeeTasks(role) && <Link href="/admin/tasks">Aufgaben</Link>}
-        {canManageEvents(role) && <Link href="/admin/events">Termine</Link>}
-        {canManagePayments(role) && <Link href="/admin/payments">Zahlungen</Link>}
-        {canManageMailTemplates(role) && <Link href="/admin/mail-templates">E-Mail-Vorlagen</Link>}
-        {canManageMailTemplates(role) && <Link href="/admin/reminders">Erinnerungen</Link>}
-        {canManageTariffs(role) && <Link href="/admin/tariffs">Preise</Link>}
-        {canManageAgreements(role) && <Link href="/admin/agreements">Verträge</Link>}
-        {canManageUsers(role) && <Link href="/admin/users">Benutzer</Link>}
+        {canSeeContactData(auth) && <Link href="/admin/waitlist">Warteliste</Link>}
+        {canSeeContactData(auth) && <Link href="/admin/customers">Kunden</Link>}
+        {canSeeTasks(auth) && <Link href="/admin/tasks">Aufgaben</Link>}
+        {canManageEvents(auth) && <Link href="/admin/events">Termine</Link>}
+        {canManagePayments(auth) && <Link href="/admin/payments">Zahlungen</Link>}
+        {canManageMailTemplates(auth) && <Link href="/admin/mail-templates">E-Mail-Vorlagen</Link>}
+        {canManageMailTemplates(auth) && <Link href="/admin/reminders">Erinnerungen</Link>}
+        {canManageTariffs(auth) && <Link href="/admin/tariffs">Preise</Link>}
+        {canManageAgreements(auth) && <Link href="/admin/agreements">Verträge</Link>}
+        {canManageUsers(auth) && <Link href="/admin/users">Benutzer</Link>}
+        {canManageRoles(auth) && <Link href="/admin/roles">Rollen</Link>}
         <span className="spacer" />
         <span className="muted small">
           {user.email} ·{' '}
-          <span className="badge">{role ? ROLE_LABEL[role] : '—'}</span>
+          <span className="badge">{user.auth?.roleLabel ?? '—'}</span>
         </span>
         <form action={signOut}>
           <button type="submit" className="linklike">
@@ -80,7 +81,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </form>
       </nav>
       <main className="wrap">
-        {!canSeeContactData(role) && (
+        {!canSeeContactData(auth) && (
           <div className="notice">
             Eingeschränkte Ansicht: Kontakt- und Finanzdaten werden für diese Rolle
             nicht geladen.

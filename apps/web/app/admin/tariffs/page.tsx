@@ -139,7 +139,7 @@ function TariffView({ cfg }: { cfg: TariffConfig }) {
 
 export default async function TariffsPage() {
   const me = await getSessionUser();
-  const canEdit = canManageTariffs(me?.profile?.role);
+  const canEdit = canManageTariffs(me?.auth);
 
   const supabase = serverClient(await cookies());
   const [{ data: locations }, { data: tariffs, error }] = await Promise.all([

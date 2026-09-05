@@ -43,9 +43,9 @@ function toLocalInput(iso: string): string {
 
 export default async function EventsPage() {
   const me = await getSessionUser();
-  const role = me?.profile?.role;
+  const auth = me?.auth;
 
-  if (!canManageEvents(role)) {
+  if (!canManageEvents(auth)) {
     return (
       <>
         <h1>Termine & Kategorien</h1>
@@ -89,7 +89,7 @@ export default async function EventsPage() {
     <>
       <h1>Termine & Kategorien</h1>
 
-      {canManageCategories(role) && (
+      {canManageCategories(auth) && (
         <>
           <h2>Kategorien</h2>
           <p className="muted small">

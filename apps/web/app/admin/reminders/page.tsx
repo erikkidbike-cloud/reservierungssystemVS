@@ -178,7 +178,7 @@ function RuleForm({
 
 export default async function RemindersPage() {
   const me = await getSessionUser();
-  if (!canManageMailTemplates(me?.profile?.role)) {
+  if (!canManageMailTemplates(me?.auth)) {
     return (
       <>
         <h1>Erinnerungen</h1>

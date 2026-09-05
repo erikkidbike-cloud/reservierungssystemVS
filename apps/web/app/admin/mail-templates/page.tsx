@@ -35,9 +35,9 @@ const PLACEHOLDERS = [
 
 export default async function MailTemplatesPage() {
   const me = await getSessionUser();
-  const role = me?.profile?.role;
+  const auth = me?.auth;
 
-  if (!canManageMailTemplates(role)) {
+  if (!canManageMailTemplates(auth)) {
     return (
       <>
         <h1>E-Mail-Vorlagen</h1>
